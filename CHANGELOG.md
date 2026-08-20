@@ -4,6 +4,10 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### Fixed
+
+- Point the GitHub Actions pip cache at `requirements-dev.txt` so dependency cache discovery does not fail before contract validation runs.
+
 ## [1.0.0] - Draft
 
 ### Added
