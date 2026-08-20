@@ -1,0 +1,92 @@
+openapi: 3.1.0
+info: {title: SlamCore Server Agent API, version: 1.0.0}
+servers:
+  - url: http://{serverHost}:5000/api/v1
+    variables:
+      serverHost: {default: server.local}
+paths:
+  /devices/register:
+    post:
+      operationId: registerDevice
+      parameters: [{$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Registration'}
+      responses:
+        '200': {description: Registered, content: {application/json: {schema: {$ref: '#/components/schemas/RegistrationResult'}}}}
+        '400': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+  /devices/{deviceId}/update:
+    get:
+      operationId: getDeviceUpdate
+      parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}]
+      responses:
+        '200': {description: Pending update, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateCommand'}}}}
+        '204': {description: No pending update}
+        '404': {$ref: '#/components/responses/Error'}
+  /devices/{deviceId}/status:
+    post:
+      operationId: reportDeviceStatus
+      parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/server-api/device-status.schema.json'}
+      responses:
+        '204': {description: Status stored idempotently}
+        '400': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /devices/{deviceId}/history:
+    get:
+      operationId: getDeviceHistory
+      parameters:
+        - $ref: '#/components/parameters/DeviceId'
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 200, default: 50}}
+        - {name: before, in: query, schema: {type: string, maxLength: 128}}
+      responses:
+        '200':
+          description: Newest-first job history
+          content:
+            application/json:
+              schema: {type: array, items: {$ref: '../schemas/common/update-status.schema.json'}}
+        '404': {$ref: '#/components/responses/Error'}
+components:
+  parameters:
+    ContractVersion: {name: X-SlamCore-Contract-Version, in: header, required: true, schema: {const: '1.0'}}
+    IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+    DeviceId: {name: deviceId, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}}
+  schemas:
+    Registration:
+      type: object
+      required: [contractVersion, deviceId, machineName, agentVersion, updaterEndpoint, platform, currentReleaseVersion]
+      properties:
+        contractVersion: {const: '1.0'}
+        deviceId: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}
+        machineName: {type: string, minLength: 1}
+        agentVersion: {type: string}
+        updaterEndpoint: {type: string, format: uri, pattern: '^http://'}
+        platform: {type: string}
+        currentReleaseVersion: {type: string}
+      additionalProperties: true
+    RegistrationResult:
+      type: object
+      required: [deviceId, registered, serverTimeUtc, pollIntervalSeconds]
+      properties:
+        deviceId: {type: string}
+        registered: {type: boolean}
+        serverTimeUtc: {type: string, format: date-time, pattern: 'Z$'}
+        pollIntervalSeconds: {type: integer, minimum: 1}
+      additionalProperties: true
+    UpdateCommand:
+      allOf:
+        - $ref: '../schemas/updater-api/update-request.schema.json'
+        - type: object
+          required: [createdAtUtc, expiresAtUtc]
+          properties:
+            createdAtUtc: {type: string, format: date-time, pattern: 'Z$'}
+            expiresAtUtc: {type: string, format: date-time, pattern: 'Z$'}
+  responses:
+    Error: {description: Contract error, content: {application/problem+json: {schema: {$ref: '../schemas/common/error-response.schema.json'}}}}

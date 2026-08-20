@@ -1,0 +1,121 @@
+openapi: 3.1.0
+info:
+  title: SlamCore Updater API
+  version: 1.0.0
+  description: Internal HTTP contract; package integrity is enforced with SHA-256.
+servers:
+  - url: http://{jetsonHost}:5000/api/v1
+    variables:
+      jetsonHost: {default: jetson.local}
+paths:
+  /status:
+    get:
+      operationId: getUpdaterStatus
+      responses:
+        '200':
+          description: Current service status
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ServiceStatus'}
+  /update:
+    post:
+      operationId: startUpdate
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../schemas/updater-api/update-request.schema.json'}
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+  /update/{jobId}:
+    get:
+      operationId: getUpdate
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: Update status
+          content:
+            application/json:
+              schema: {$ref: '../schemas/common/update-status.schema.json'}
+        '404': {$ref: '#/components/responses/Error'}
+  /rollback:
+    post:
+      operationId: rollbackUpdate
+      parameters:
+        - $ref: '#/components/parameters/ContractVersion'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [contractVersion, jobId]
+              properties:
+                contractVersion: {const: '1.0'}
+                jobId: {$ref: '#/components/schemas/JobId'}
+              additionalProperties: true
+      responses:
+        '202': {$ref: '#/components/responses/Accepted'}
+        '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+components:
+  parameters:
+    ContractVersion:
+      name: X-SlamCore-Contract-Version
+      in: header
+      required: true
+      schema: {const: '1.0'}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 1, maxLength: 200}
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema: {$ref: '#/components/schemas/JobId'}
+  schemas:
+    JobId: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}
+    State:
+      enum: [queued, checking, downloading, verifying, backing_up, installing, building, restarting, health_checking, completed, failed, rolling_back, rolled_back]
+    ServiceStatus:
+      type: object
+      required: [contractVersion, serviceVersion, platform, currentReleaseVersion, state, activeJobId, dockerStatus, healthy]
+      properties:
+        contractVersion: {const: '1.0'}
+        serviceVersion: {type: string}
+        platform: {type: string}
+        currentReleaseVersion: {type: string}
+        state: {$ref: '#/components/schemas/State'}
+        activeJobId: {oneOf: [{$ref: '#/components/schemas/JobId'}, {type: 'null'}]}
+        dockerStatus: {enum: [running, stopped, unavailable]}
+        healthy: {type: boolean}
+      additionalProperties: true
+    Accepted:
+      type: object
+      required: [jobId, accepted, state, statusUrl]
+      properties:
+        jobId: {$ref: '#/components/schemas/JobId'}
+        accepted: {type: boolean}
+        state: {$ref: '#/components/schemas/State'}
+        statusUrl: {type: string, format: uri-reference}
+      additionalProperties: true
+  responses:
+    Accepted:
+      description: Operation accepted; repeated identical idempotency keys return the same job.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Accepted'}
+    Error:
+      description: Contract error
+      content:
+        application/problem+json:
+          schema: {$ref: '../schemas/common/error-response.schema.json'}

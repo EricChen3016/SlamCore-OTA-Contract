@@ -19,9 +19,7 @@
 
 ### 1.1 文件同步方式
 
-建議指定一個規格主控 Repository 保存權威版本，其餘兩個 Repository 保存唯讀鏡像副本。初期可將 `SlamCore-Server` 設為主控端，因為它負責發布、任務與設備資料模型。
-
-每份副本頂端必須保留相同的 Contract version。CI 應比較三份文件的 SHA-256，或由主控端自動同步，避免內容漂移。
+`SlamCore-OTA-Contract` 是唯一規格主控 Repository。三個產品 Repository 必須透過固定 commit 或 `contract-v*` tag 的 Git Submodule，在 `contracts/slamcore-ota` 引用本契約；禁止複製後各自修改，也禁止自動追蹤 `main`。
 
 ### 1.2 相容性規則
 
@@ -99,7 +97,7 @@ Base URL：`http://<server-host>:5000/api/v1`
 
 ### 4.1 註冊或更新設備資料
 
-`PUT /devices/{deviceId}`
+`POST /devices/register`
 
 ```json
 {
@@ -123,26 +121,13 @@ Base URL：`http://<server-host>:5000/api/v1`
 }
 ```
 
-### 4.2 Agent heartbeat 與狀態回報
+### 4.2 Agent 狀態回報
 
-`POST /devices/{deviceId}/heartbeat`
-
-```json
-{
-  "contractVersion": "1.0",
-  "agentStatus": "online",
-  "updaterStatus": "online",
-  "currentReleaseVersion": "1.0.5",
-  "activeJobId": null,
-  "observedAtUtc": "2026-08-20T01:30:00Z"
-}
-```
-
-成功：`204 No Content`。
+設備更新狀態統一透過 4.4 的 `POST /devices/{deviceId}/status` 回報；v1 不另定義 heartbeat 端點。設備在線判定可由最近一次狀態回報或更新輪詢時間推導。
 
 ### 4.3 取得待執行更新
 
-`GET /devices/{deviceId}/update-command`
+`GET /devices/{deviceId}/update`
 
 無待執行命令：`204 No Content`。
 
@@ -165,7 +150,7 @@ Base URL：`http://<server-host>:5000/api/v1`
 
 ### 4.4 回報更新進度
 
-`PUT /devices/{deviceId}/update-jobs/{jobId}/status`
+`POST /devices/{deviceId}/status`
 
 ```json
 {
@@ -180,11 +165,13 @@ Base URL：`http://<server-host>:5000/api/v1`
 }
 ```
 
-本端點為 idempotent。相同或較舊的狀態序號不得覆寫較新的狀態；實作可在 DTO 增加單調遞增的 `sequence` optional 欄位。
+Header：`Idempotency-Key: status:<jobId>:<sequence>`。`jobId` 由 update command 決定並透過冪等鍵關聯。
+
+本端點為 idempotent。相同或較舊的狀態序號不得覆寫較新的狀態；DTO 可使用單調遞增的 `sequence` optional 欄位。
 
 ### 4.5 取得歷史
 
-`GET /devices/{deviceId}/update-jobs?limit=50&before=<jobId>`
+`GET /devices/{deviceId}/history?limit=50&before=<jobId>`
 
 回傳由新至舊的 Job 摘要陣列。`limit` 預設 50，上限 200。
 
@@ -211,7 +198,7 @@ Base URL：`http://<jetson-host>:5000/api/v1`
 
 ### 5.2 啟動更新
 
-`POST /update-jobs`
+`POST /update`
 
 Header：`Idempotency-Key: <server-jobId>`
 
@@ -233,13 +220,13 @@ Header：`Idempotency-Key: <server-jobId>`
   "jobId": "job-01J5QZ9WZ7H1",
   "accepted": true,
   "state": "queued",
-  "statusUrl": "/api/v1/update-jobs/job-01J5QZ9WZ7H1"
+  "statusUrl": "/api/v1/update/job-01J5QZ9WZ7H1"
 }
 ```
 
 ### 5.3 查詢更新
 
-`GET /update-jobs/{jobId}`
+`GET /update/{jobId}`
 
 ```json
 {
@@ -258,7 +245,7 @@ Header：`Idempotency-Key: <server-jobId>`
 
 ### 5.4 要求回復
 
-`POST /update-jobs/{jobId}/rollback`
+`POST /rollback`
 
 Header：`Idempotency-Key: rollback:<jobId>`
 

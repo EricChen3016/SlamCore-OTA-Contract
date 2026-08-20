@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/common/update-status.schema.json",
+  "title": "UpdateStatus",
+  "type": "object",
+  "required": ["contractVersion", "jobId", "state", "progressPercent", "message", "fromVersion", "targetVersion", "errorCode", "createdAtUtc", "updatedAtUtc"],
+  "properties": {
+    "contractVersion": {"const": "1.0"},
+    "jobId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
+    "state": {"enum": ["queued", "checking", "downloading", "verifying", "backing_up", "installing", "building", "restarting", "health_checking", "completed", "failed", "rolling_back", "rolled_back"]},
+    "progressPercent": {"type": "integer", "minimum": 0, "maximum": 100},
+    "message": {"type": "string", "maxLength": 1024},
+    "fromVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},
+    "targetVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},
+    "errorCode": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "createdAtUtc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "updatedAtUtc": {"type": "string", "format": "date-time", "pattern": "Z$"}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/release/slamcore-build-manifest.schema.json",
+  "title": "SlamCore build manifest", "type": "object",
+  "required": ["schemaVersion", "buildMode", "packages", "healthChecks"],
+  "properties": {
+    "schemaVersion": {"const": 1}, "buildMode": {"enum": ["incremental", "none"]},
+    "packages": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}},
+    "healthChecks": {"type": "array", "items": {"type": "object", "required": ["type", "name", "expectedState", "timeoutSeconds"], "properties": {"type": {"const": "dockerContainer"}, "name": {"type": "string", "minLength": 1}, "expectedState": {"const": "running"}, "timeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 3600}}, "additionalProperties": false}}
+  }, "additionalProperties": false
+}

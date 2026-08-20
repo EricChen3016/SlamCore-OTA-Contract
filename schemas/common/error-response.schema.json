@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/common/error-response.schema.json",
+  "title": "ErrorResponse",
+  "type": "object",
+  "required": ["type", "title", "status", "code", "detail", "correlationId", "retryable"],
+  "properties": {
+    "type": {"type": "string", "format": "uri"},
+    "title": {"type": "string", "minLength": 1},
+    "status": {"type": "integer", "minimum": 400, "maximum": 599},
+    "code": {"enum": ["VALIDATION_FAILED", "RESOURCE_NOT_FOUND", "UPDATE_ALREADY_RUNNING", "IDEMPOTENCY_CONFLICT", "INCOMPATIBLE_RELEASE", "DEPENDENCY_UNAVAILABLE", "OPERATION_TIMEOUT"]},
+    "detail": {"type": "string", "minLength": 1},
+    "correlationId": {"type": "string", "format": "uuid"},
+    "retryable": {"type": "boolean"}
+  },
+  "additionalProperties": true
+}

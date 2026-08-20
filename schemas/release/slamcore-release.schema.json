@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/release/slamcore-release.schema.json",
+  "title": "Parsed .slamcore_release model",
+  "description": "Parsed representation of the UTF-8 KEY=VALUE release metadata file.",
+  "type": "object",
+  "required": ["FORMAT_VERSION", "PRODUCT", "VERSION", "PLATFORM", "MIN_UPDATER_VERSION", "CONTRACT_VERSION"],
+  "properties": {
+    "FORMAT_VERSION": {"const": "1"}, "PRODUCT": {"const": "SlamCoreWeb"},
+    "VERSION": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "PLATFORM": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "MIN_UPDATER_VERSION": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$"},
+    "CONTRACT_VERSION": {"const": "1.0"}
+  },
+  "additionalProperties": false
+}

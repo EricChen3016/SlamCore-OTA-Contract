@@ -1,0 +1,1 @@
+{"type":"https://slamcore.local/problems/update-conflict","title":"Update already in progress","status":409,"code":"UPDATE_ALREADY_RUNNING","detail":"The device already has an active update job.","correlationId":"7d6a89e0-7a99-4da6-a281-8e58d7252540","retryable":false}

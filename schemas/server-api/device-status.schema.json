@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/server-api/device-status.schema.json",
+  "title": "DeviceStatus",
+  "type": "object",
+  "required": ["contractVersion", "state", "progressPercent", "message", "errorCode", "fromVersion", "targetVersion", "observedAtUtc"],
+  "properties": {
+    "contractVersion": {"const": "1.0"},
+    "state": {"enum": ["queued", "checking", "downloading", "verifying", "backing_up", "installing", "building", "restarting", "health_checking", "completed", "failed", "rolling_back", "rolled_back"]},
+    "progressPercent": {"type": "integer", "minimum": 0, "maximum": 100},
+    "message": {"type": "string", "maxLength": 1024},
+    "errorCode": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*$"},
+    "fromVersion": {"type": "string"}, "targetVersion": {"type": "string"},
+    "observedAtUtc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "sequence": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": true
+}
