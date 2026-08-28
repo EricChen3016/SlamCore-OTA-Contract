@@ -69,6 +69,9 @@ def check_refs(document, source: Path) -> None:
                 fail(source, f"missing or unsafe $ref target: {ref}")
         for value in document.values():
             check_refs(value, source)
+    elif isinstance(document, list):
+        for value in document:
+            check_refs(value, source)
 
 
 def absolute_refs(document, source: Path) -> None:
@@ -85,9 +88,6 @@ def absolute_refs(document, source: Path) -> None:
     elif isinstance(document, list):
         for value in document:
             absolute_refs(value, source)
-    elif isinstance(document, list):
-        for value in document:
-            check_refs(value, source)
 
 
 def main() -> int:
