@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: {title: SlamCore Server Agent API, version: 1.1.0}
+info: {title: SlamCore Server Agent API, version: 2.0.0}
 servers:
   - url: http://{serverHost}:5000/api/v1
     variables:
@@ -55,7 +55,7 @@ paths:
         '404': {$ref: '#/components/responses/Error'}
 components:
   parameters:
-    ContractVersion: {name: X-SlamCore-Contract-Version, in: header, required: true, schema: {const: '1.1'}}
+    ContractVersion: {name: X-SlamCore-Contract-Version, in: header, required: true, schema: {const: '2.0'}}
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
     DeviceId: {name: deviceId, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}}
   schemas:
@@ -63,7 +63,7 @@ components:
       type: object
       required: [contractVersion, deviceId, machineName, agentVersion, updaterEndpoint, platform, currentReleaseVersion]
       properties:
-        contractVersion: {const: '1.1'}
+        contractVersion: {const: '2.0'}
         deviceId: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}
         machineName: {type: string, minLength: 1}
         agentVersion: {type: string}

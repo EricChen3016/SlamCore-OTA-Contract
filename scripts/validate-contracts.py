@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import re
 import sys
 from pathlib import Path
@@ -10,6 +11,7 @@ from urllib.parse import urldefrag
 
 import yaml
 from jsonschema import Draft202012Validator, FormatChecker
+from openapi_spec_validator import validate_spec
 
 ROOT = Path(__file__).resolve().parents[1]
 ERRORS: list[str] = []
@@ -43,29 +45,18 @@ def validate_instance(instance_path: Path, schema_path: Path, instance=None) -> 
         fail(schema_path, f"schema validation failed: {exc}")
 
 
-def parse_release(path: Path) -> dict[str, str] | None:
-    result: dict[str, str] = {}
+def validate_active_release_marker(path: Path) -> None:
     try:
         raw = path.read_bytes()
-        text = raw.decode("utf-8")
+        raw.decode("utf-8")
     except (OSError, UnicodeError) as exc:
-        fail(path, f"cannot read UTF-8 release metadata: {exc}")
-        return None
+        fail(path, f"cannot read UTF-8 active release marker: {exc}")
+        return
     if b"\r" in raw:
         fail(path, "must use LF line endings")
-    for number, line in enumerate(text.splitlines(), 1):
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            fail(path, f"line {number} is not KEY=VALUE")
-            continue
-        key, value = line.split("=", 1)
-        if not re.fullmatch(r"[A-Z][A-Z0-9_]*", key) or not value:
-            fail(path, f"line {number} has an invalid key or empty value")
-        elif key in result:
-            fail(path, f"line {number} duplicates {key}")
-        result[key] = value
-    return result
+    semver = rb"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\n"
+    if re.fullmatch(semver, raw) is None:
+        fail(path, "must contain exactly one SemVer followed by LF")
 
 
 def check_refs(document, source: Path) -> None:
@@ -83,6 +74,22 @@ def check_refs(document, source: Path) -> None:
             check_refs(value, source)
 
 
+def absolute_refs(document, source: Path) -> None:
+    """Make local refs absolute in a validation-only copy for the OpenAPI library."""
+    if isinstance(document, dict):
+        ref = document.get("$ref")
+        if isinstance(ref, str) and not ref.startswith(("#", "http://", "https://", "file://")):
+            file_part, fragment = urldefrag(ref)
+            document["$ref"] = (source.parent / file_part).resolve().as_uri()
+            if fragment:
+                document["$ref"] += f"#{fragment}"
+        for value in document.values():
+            absolute_refs(value, source)
+    elif isinstance(document, list):
+        for value in document:
+            absolute_refs(value, source)
+
+
 def main() -> int:
     for path in ROOT.rglob("*.json"):
         document = load_json(path)
@@ -98,15 +105,12 @@ def main() -> int:
         "examples/update-request.json": "schemas/updater-api/update-request.schema.json",
         "examples/update-status.json": "schemas/common/update-status.schema.json",
         "examples/error-response.json": "schemas/common/error-response.schema.json",
-        "examples/slamcore-build-manifest.json": "schemas/release/slamcore-build-manifest.schema.json",
+        "examples/slamcore-package.json": "schemas/release/slamcore-package.schema.json",
     }
     for instance, schema in mappings.items():
         validate_instance(ROOT / instance, ROOT / schema)
 
-    release_path = ROOT / "examples/slamcore-release.env"
-    parsed = parse_release(release_path)
-    if parsed is not None:
-        validate_instance(release_path, ROOT / "schemas/release/slamcore-release.schema.json", parsed)
+    validate_active_release_marker(ROOT / "examples/workspace-active-release.txt")
 
     expected_paths = {
         "openapi/slamcore-server-v1.yaml": {"/devices/register", "/devices/{deviceId}/update", "/devices/{deviceId}/status", "/devices/{deviceId}/history"},
@@ -123,20 +127,41 @@ def main() -> int:
             if missing:
                 fail(path, f"missing required paths: {sorted(missing)}")
             check_refs(document, path)
+            validation_document = copy.deepcopy(document)
+            absolute_refs(validation_document, path)
+            validate_spec(validation_document, base_uri=path.resolve().as_uri())
         except (OSError, UnicodeError, yaml.YAMLError) as exc:
             fail(path, f"invalid YAML: {exc}")
+        except Exception as exc:
+            fail(path, f"invalid OpenAPI document: {exc}")
 
     version_path = ROOT / "VERSION"
     version = version_path.read_text(encoding="utf-8").strip()
     if not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version):
         fail(version_path, "must contain a SemVer core version")
+    elif version != "2.0.0":
+        fail(version_path, "Contract 2.0 repository release must be 2.0.0")
+
+    for path in [*ROOT.glob("schemas/**/*.json"), *ROOT.glob("openapi/*.yaml")]:
+        text = path.read_text(encoding="utf-8")
+        if "1.1" in text or '"building"' in text or " building" in text:
+            fail(path, "contains a legacy Contract 1.1/building value")
+
+    for path in [
+        ROOT / "schemas/release/slamcore-build-manifest.schema.json",
+        ROOT / "examples/slamcore-build-manifest.json",
+        ROOT / "schemas/release/slamcore-release.schema.json",
+        ROOT / "examples/slamcore-release.env",
+    ]:
+        if path.exists():
+            fail(path, "legacy Contract 1.x artifact must remain removed")
 
     if ERRORS:
         print("Contract validation failed:", file=sys.stderr)
         for error in ERRORS:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print("Contract validation passed: JSON, schemas, examples, release metadata, OpenAPI, references, and VERSION are valid.")
+    print("Contract validation passed: JSON, schemas, examples, package metadata, active marker, OpenAPI, references, ownership invariants, and VERSION are valid.")
     return 0
 
 

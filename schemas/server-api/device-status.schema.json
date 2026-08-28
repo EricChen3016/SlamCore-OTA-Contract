@@ -5,8 +5,8 @@
   "type": "object",
   "required": ["contractVersion", "state", "progressPercent", "message", "errorCode", "fromVersion", "targetVersion", "observedAtUtc"],
   "properties": {
-    "contractVersion": {"const": "1.1"},
-    "state": {"enum": ["queued", "checking", "downloading", "verifying", "backing_up", "installing", "building", "restarting", "health_checking", "completed", "failed", "rolling_back", "rolled_back"]},
+    "contractVersion": {"const": "2.0"},
+    "state": {"enum": ["queued", "checking", "downloading", "verifying", "backing_up", "installing", "restarting", "health_checking", "completed", "failed", "rolling_back", "rolled_back"]},
     "progressPercent": {"type": "integer", "minimum": 0, "maximum": 100},
     "message": {"type": "string", "maxLength": 1024},
     "errorCode": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*$"},
