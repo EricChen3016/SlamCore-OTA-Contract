@@ -1,1 +1,0 @@
-{"schemaVersion":1,"buildMode":"incremental","packages":["lp_imu","lp_bringup"],"healthChecks":[{"type":"dockerContainer","name":"slamcore-web","expectedState":"running","timeoutSeconds":300}]}

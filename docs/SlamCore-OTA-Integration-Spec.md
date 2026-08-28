@@ -1,532 +1,175 @@
-# SlamCore OTA Integration Specification v1
+# SlamCore OTA Integration Specification v2
 
-> 文件狀態：Draft for implementation  
-> Contract version：`1.1`
-> 適用專案：`SlamCore-Server`、`SlamCore-Agent`、`SlamCore-Updater`  
-> 建議存放路徑：`docs/SlamCore-OTA-Integration-Spec.md`
+> 文件狀態：Draft for implementation
+> Repository version：`2.0.0`
+> Runtime contract version：`2.0`
+> 適用專案：`SlamCore-Server`、`SlamCore-Agent`、`SlamCore-Updater`
 
-## 1. 目的與治理原則
+## 1. 權威性、版本與相容性
 
-本文件是三個 Repository 之間的跨專案契約（single source of truth），固定以下內容：
+本 repository 是 Server、Agent 與 Updater 的唯一跨專案 OTA contract。產品 repository 必須 pin reviewed commit 或 `contract-v*` tag，不得複製、延伸或重新解釋公開 API、DTO、state、錯誤碼或 release format。
 
-- Server API Contract
-- Agent 與 Updater API Contract
-- Update State Machine
-- Release Package Format
-- 錯誤碼、冪等、逾時、重試及版本相容性規則
+- HTTP base path 保持 `/api/v1`；這是 endpoint generation，並不等於 runtime contract version。
+- JSON/header 的 `contractVersion` 與 `X-SlamCore-Contract-Version` 固定為 `2.0`。
+- JSON 欄位採 camelCase；時間為 UTC ISO 8601；版本為不含 `v` 的 SemVer；ID 是不透明字串。
+- DTO 接收端容忍未知欄位，以利 2.x minor additions；strict release metadata 不容忍未知欄位。
+- Contract 1.x 與 2.0 不相容。2.0 移除 `building` public state、改變 package metadata，並移除 Updater 的 ROS build ownership。
 
-實作若與本文件不同，以本文件為準。契約變更必須先修改本文件、提升 Contract version，再修改各專案。禁止只在單一 Repository 變更公開 DTO、端點、狀態名稱或套件格式。
+## 2. 系統責任邊界
 
-### 1.1 文件同步方式
+| 元件 | 責任 | 明確不負責 |
+| --- | --- | --- |
+| Server | Device、Release、Update Job 與中央狀態 | 直接操作 Jetson、runtime build |
+| Agent | 輪詢 Server、呼叫 Updater、持久化與補送狀態 | 解壓、activation、runtime build |
+| Updater | artifact download、SHA-256/integrity 與 metadata validation、staging、activation、active release marker、managed runtime restart、health verification、rollback、crash recovery | ROS package detection/build/reconciliation；Build Manager internal state |
+| SlamCoreWeb runtime startup | 依 active release reconcile ROS build state，啟動應用並收斂到健康 | OTA transaction、artifact validation、activation、rollback |
 
-`SlamCore-OTA-Contract` 是唯一規格主控 Repository。三個產品 Repository 必須透過固定 commit 或 `contract-v*` tag 的 Git Submodule，在 `contracts/slamcore-ota` 引用本契約；禁止複製後各自修改，也禁止自動追蹤 `main`。
+`.slamcore_build_manifest.json` 是 SlamCoreWeb Build Manager (`scripts/ros_build_manager.py`) 在 **workspace root** 自行讀寫的 internal build-state manifest，不是 release package metadata，也不是 Updater transaction state。OTA Contract 不定義其 schema。Updater **MUST NOT** parse、validate、create、mutate、delete、migrate、checkpoint 或 rollback 該檔案；未知的未來 schema/version/content 也不得造成 package 或 update rejection。Filesystem deployment 與 rollback 必須 preserve 此檔及其他 unrelated workspace-level state。
 
-### 1.2 相容性規則
+## 3. 共用 HTTP 與錯誤
 
-- API 路徑固定使用 `/api/v1`。
-- `contractVersion` 使用 `major.minor`，本版為 `1.1`。
-- 新增 optional 欄位屬向後相容，可提升 minor version。
-- 刪除或更名欄位、改變欄位型別、改變狀態語意、改變必要檔案，屬破壞性變更，必須提升 major version。
-- 接收端必須忽略未知 JSON 欄位；不得因 minor version 新增欄位而失敗。
-- JSON 欄位使用 camelCase；時間使用 UTC ISO 8601，例如 `2026-08-20T01:30:00Z`。
-- ID 使用不透明字串；不得由呼叫端解析 ID 內容。
-- 版本號使用 SemVer，傳輸與儲存時不含前置 `v`，例如 `1.0.6`。
+每個 JSON request 使用 `Accept: application/json`、`Content-Type: application/json`、`X-SlamCore-Contract-Version: 2.0` 及 `X-Correlation-Id`。具副作用操作另帶穩定的 `Idempotency-Key`。相同 key/body 必須回原 job；相同 key/different body 回 `409 IDEMPOTENCY_CONFLICT`。
 
-## 2. 系統邊界
+錯誤採 RFC 7807 compatible body。最低錯誤碼：
 
-| 元件 | 平台 | 責任 | 不負責 |
+| HTTP | code | retryable | 意義 |
 | --- | --- | --- | --- |
-| SlamCore-Server | Windows Service / .NET 8 / PostgreSQL | 設備、Release、Update Job、中央狀態 | 直接操作 Jetson |
-| SlamCore-Agent | Windows Service / .NET 8 / SQLite | 輪詢 Server、控制單一 Jetson、保存本地狀態 | 解壓或部署 ROS 2 Release |
-| SlamCore-Updater | Jetson Linux 背景服務 | 下載、驗證、備份、安裝、建置、重啟、健康檢查、回復 | 決定設備應更新到哪一版 |
+| 400 | `VALIDATION_FAILED` | false | DTO/格式無效 |
+| 404 | `RESOURCE_NOT_FOUND` | false | Resource 不存在 |
+| 409 | `UPDATE_ALREADY_RUNNING` | false | 已有 active job |
+| 409 | `IDEMPOTENCY_CONFLICT` | false | key 被不同 request 使用 |
+| 422 | `INCOMPATIBLE_RELEASE` | false | package metadata、platform、contract 或 minimum Updater 不相容 |
+| 503 | `DEPENDENCY_UNAVAILABLE` | true | runtime/DB/下游不可用 |
+| 504 | `OPERATION_TIMEOUT` | true | 操作或健康收斂逾時 |
 
-通訊方向：Agent 主動呼叫 Server；Agent 主動呼叫 Updater。v1 不要求 Server 主動連入 Agent，也不要求 Updater 直接連 Server。
+## 4. Server API
 
-## 3. 共用 HTTP 規範
+Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi/slamcore-server-v1.yaml` 及其 referenced schemas 為準。
 
-### 3.1 Header
-
-每個 API request 應包含：
+- `POST /devices/register`：註冊/更新設備，idempotent。
+- `GET /devices/{deviceId}/update`：無命令回 `204`；有命令回 Contract 2.0 update request 加 `createdAtUtc`、`expiresAtUtc`。
+- `POST /devices/{deviceId}/status`：依 `Idempotency-Key: status:<jobId>:<sequence>` 單調回報；舊 sequence 不得覆蓋新狀態。
+- `GET /devices/{deviceId}/history`：newest-first，`limit` 1–200。
 
-```http
-Accept: application/json
-Content-Type: application/json
-X-SlamCore-Contract-Version: 1.1
-X-Correlation-Id: <uuid>
-```
+Server 的 `jobId` 必須原樣傳至 Agent 與 Updater。
 
-觸發具副作用的操作時還必須包含：
+## 5. Updater API
 
-```http
-Idempotency-Key: <stable-operation-key>
-```
+Base URL：`http://<jetson-host>:5000/api/v1`。Machine definitions 以 `openapi/slamcore-updater-v1.yaml` 及 referenced schemas 為準。
 
-同一 `Idempotency-Key` 與相同 request body 重送時，服務端必須回傳原操作結果，不得建立第二個 Job。相同 key 搭配不同 body 時回傳 `409 Conflict`。
-
-### 3.2 共用錯誤格式
-
-使用 RFC 7807 相容格式：
-
-```json
-{
-  "type": "https://slamcore.local/problems/update-conflict",
-  "title": "Update already in progress",
-  "status": 409,
-  "code": "UPDATE_ALREADY_RUNNING",
-  "detail": "Device AMR-001 already has an active update job.",
-  "correlationId": "7d6a89e0-7a99-4da6-a281-8e58d7252540",
-  "retryable": false
-}
-```
+- `GET /status`：無 active job 時為 `idle` 且 `activeJobId: null`。
+- `POST /update`：`Idempotency-Key: <server-jobId>`；首次接受 `202`，相同 request 可回 `200/202` 且為同一 job。
+- `GET /update/{jobId}`：回 public transaction state；SlamCoreWeb startup 的內部 build progress 不得映射成 `building`。
+- `POST /rollback`：只接受仍有可用 previous release 的 job，idempotency key 為 `rollback:<jobId>`。
 
-最低共用錯誤碼：
+所有 runtime DTO 的 `contractVersion` 為 `2.0`。
 
-| HTTP | code | retryable | 說明 |
-| --- | --- | --- | --- |
-| 400 | `VALIDATION_FAILED` | false | 欄位或格式錯誤 |
-| 404 | `RESOURCE_NOT_FOUND` | false | Device、Release 或 Job 不存在 |
-| 409 | `UPDATE_ALREADY_RUNNING` | false | 同一設備已有進行中任務 |
-| 409 | `IDEMPOTENCY_CONFLICT` | false | 相同 key 搭配不同內容 |
-| 422 | `INCOMPATIBLE_RELEASE` | false | 平台或契約版本不相容 |
-| 503 | `DEPENDENCY_UNAVAILABLE` | true | DB、Docker 或下游服務不可用 |
-| 504 | `OPERATION_TIMEOUT` | true | 下游或更新階段逾時 |
+## 6. Update state machine
 
-## 4. Server API Contract
+| state | progress 建議 | 語意 |
+| --- | ---: | --- |
+| `idle` | N/A | service 可用且無 active job；不是 job lifecycle state |
+| `queued` | 0 | 已接受、尚未執行 |
+| `checking` | 1–5 | preflight 相容性與空間檢查 |
+| `downloading` | 6–25 | 下載 artifact 到 temporary storage |
+| `verifying` | 26–35 | **先驗證 ZIP SHA-256**，再安全檢查 archive 與 package metadata |
+| `backing_up` | 36–45 | durable 記錄 previous active release/rollback data |
+| `installing` | 46–70 | staging release 並原子切換 active link/marker |
+| `restarting` | 71–85 | 啟動 managed runtime；SlamCoreWeb startup 可在內部 reconcile/build |
+| `health_checking` | 86–99 | 等待新 runtime 達成 externally observable health |
+| `completed` | 100 | 新 active release 已健康 |
+| `rolling_back` | 保留 | 恢復 previous link/marker 並重啟/驗證舊 runtime |
+| `rolled_back` | 100 | previous runtime 恢復健康；原 update 失敗 |
+| `failed` | 保留 | activation 前失敗、不需 rollback，或 rollback 無法恢復健康 |
 
-Base URL：`http://<server-host>:5000/api/v1`
+正常 transition：
 
-### 4.1 註冊或更新設備資料
+`queued → checking → downloading → verifying → backing_up → installing → restarting → health_checking → completed`
 
-`POST /devices/register`
+例外 transition：
 
-```json
-{
-  "contractVersion": "1.1",
-  "machineName": "Machine-PC-01",
-  "agentVersion": "1.0.0",
-  "updaterEndpoint": "http://192.168.0.50:5000",
-  "platform": "jetson-orin",
-  "currentReleaseVersion": "1.0.5"
-}
-```
+- `checking`、`downloading`、`verifying`、`backing_up` 在 active link 尚未 mutation 時可到 `failed`。
+- 自 active link mutation 起，`installing`、`restarting` 或 `health_checking` 的 failure/timeout 必須到 `rolling_back`。
+- `rolling_back → rolled_back`（previous runtime 健康）或 `rolling_back → failed`。
+- `completed`、`rolled_back`、`failed` 是 terminal；同一 Updater 同時最多一個 active job。
+- Updater 僅依 managed runtime health 判定，不須辨識 colcon、ROS package 或其他 startup failure cause。
 
-成功：`200 OK`；第一次建立也回 `200 OK`，以簡化 Agent 重試。
+## 7. Timeout 與 recovery
 
-```json
-{
-  "deviceId": "AMR-001",
-  "registered": true,
-  "serverTimeUtc": "2026-08-20T01:30:00Z",
-  "pollIntervalSeconds": 300
-}
-```
-
-### 4.2 Agent 狀態回報
-
-設備更新狀態統一透過 4.4 的 `POST /devices/{deviceId}/status` 回報；v1 不另定義 heartbeat 端點。設備在線判定可由最近一次狀態回報或更新輪詢時間推導。
-
-### 4.3 取得待執行更新
-
-`GET /devices/{deviceId}/update`
-
-無待執行命令：`204 No Content`。
-
-有命令：`200 OK`。
-
-```json
-{
-  "contractVersion": "1.1",
-  "jobId": "job-01J5QZ9WZ7H1",
-  "targetVersion": "1.0.6",
-  "packageUrl": "http://server/releases/SlamCoreWeb.1.0.6.zip",
-  "packageSha256": "<64 lowercase hex characters>",
-  "platform": "jetson-orin",
-  "createdAtUtc": "2026-08-20T01:25:00Z",
-  "expiresAtUtc": "2026-08-21T01:25:00Z"
-}
-```
-
-`jobId` 是跨三端追蹤的唯一 Job ID。Agent 傳給 Updater 時不得另建不同的業務 Job ID。
-
-### 4.4 回報更新進度
-
-`POST /devices/{deviceId}/status`
-
-```json
-{
-  "contractVersion": "1.1",
-  "state": "building",
-  "progressPercent": 65,
-  "message": "Building changed ROS 2 packages",
-  "errorCode": null,
-  "fromVersion": "1.0.5",
-  "targetVersion": "1.0.6",
-  "observedAtUtc": "2026-08-20T01:42:00Z"
-}
-```
-
-Header：`Idempotency-Key: status:<jobId>:<sequence>`。`jobId` 由 update command 決定並透過冪等鍵關聯。
-
-本端點為 idempotent。相同或較舊的狀態序號不得覆寫較新的狀態；DTO 可使用單調遞增的 `sequence` optional 欄位。
-
-### 4.5 取得歷史
-
-`GET /devices/{deviceId}/history?limit=50&before=<jobId>`
-
-回傳由新至舊的 Job 摘要陣列。`limit` 預設 50，上限 200。
-
-## 5. Agent 與 Updater API Contract
-
-Base URL：`http://<jetson-host>:5000/api/v1`
-
-### 5.1 Updater 狀態
-
-`GET /status`
-
-```json
-{
-  "contractVersion": "1.1",
-  "serviceVersion": "1.0.0",
-  "platform": "jetson-orin",
-  "currentReleaseVersion": "1.0.5",
-  "state": "idle",
-  "activeJobId": null,
-  "dockerStatus": "running",
-  "healthy": true
-}
-```
-
-`idle` 表示 Updater service 正常可用且目前沒有 active Job；此時
-`activeJobId` 應為 `null`。`queued` 不表示 service 沒有 active Job，而是表示一個
-Job 已接受但尚未開始執行。
-
-### 5.2 啟動更新
-
-`POST /update`
-
-Header：`Idempotency-Key: <server-jobId>`
-
-```json
-{
-  "contractVersion": "1.1",
-  "jobId": "job-01J5QZ9WZ7H1",
-  "targetVersion": "1.0.6",
-  "packageUrl": "http://server/releases/SlamCoreWeb.1.0.6.zip",
-  "packageSha256": "<64 lowercase hex characters>",
-  "platform": "jetson-orin"
-}
-```
-
-首次接受：`202 Accepted`。重送相同請求：`200 OK` 或 `202 Accepted`，但必須回傳同一 Job。
-
-```json
-{
-  "jobId": "job-01J5QZ9WZ7H1",
-  "accepted": true,
-  "state": "queued",
-  "statusUrl": "/api/v1/update/job-01J5QZ9WZ7H1"
-}
-```
-
-### 5.3 查詢更新
-
-`GET /update/{jobId}`
-
-```json
-{
-  "contractVersion": "1.1",
-  "jobId": "job-01J5QZ9WZ7H1",
-  "state": "building",
-  "progressPercent": 65,
-  "message": "Building lp_imu",
-  "fromVersion": "1.0.5",
-  "targetVersion": "1.0.6",
-  "errorCode": null,
-  "createdAtUtc": "2026-08-20T01:31:00Z",
-  "updatedAtUtc": "2026-08-20T01:42:00Z"
-}
-```
-
-### 5.4 要求回復
-
-`POST /rollback`
-
-Header：`Idempotency-Key: rollback:<jobId>`
-
-只允許對仍保留可用備份的 Job 執行。接受時回 `202 Accepted`；已在 rollback 中重送時回原狀態。
-
-## 6. Update State Machine
-
-### 6.1 標準狀態
-
-| state | 執行端 | progress 建議區間 | 說明 |
-| --- | --- | ---: | --- |
-| `idle` | Updater service | 不適用 | Service 正常可用且目前沒有 active Job；`activeJobId` 應為 `null` |
-| `queued` | Agent / Updater | 0 | 已接受，尚未執行 |
-| `checking` | Updater | 1–5 | 檢查版本、空間、平台與相容性 |
-| `downloading` | Updater | 6–25 | 下載到暫存檔 |
-| `verifying` | Updater | 26–30 | 驗證 ZIP SHA-256 與 manifest |
-| `backing_up` | Updater | 31–40 | 建立可回復備份 |
-| `installing` | Updater | 41–60 | 解壓及切換檔案 |
-| `building` | Updater | 61–80 | 依 build manifest 增量建置 |
-| `restarting` | Updater | 81–90 | 重啟 Docker / ROS 2 runtime |
-| `health_checking` | Updater | 91–99 | 驗證容器、服務與版本 |
-| `completed` | Updater | 100 | 新版本健康，任務成功 |
-| `failed` | Updater | 保留最後值 | 任務失敗，未完成回復或不需回復 |
-| `rolling_back` | Updater | 保留最後值 | 正在回復 |
-| `rolled_back` | Updater | 100 | 舊版本恢復健康；原更新仍視為失敗 |
-
-狀態字串固定為小寫 snake_case。Server、Agent 與 Updater 必須使用同一組名稱。
-
-`idle` 是 service/no-active-job 狀態，不是 Update Job lifecycle 的執行狀態。
-Service status 在沒有 active Job 時可以回報 `idle`；已接受 Job 的 status 必須從
-`queued` 開始，不應使用 `idle`。Updater OpenAPI 的共用 `State` enum 同時供
-service status 與 accepted response 引用，因此 machine-verifiable enum 包含
-`idle`；各 DTO 仍須遵守上述適用範圍。
-
-### 6.2 合法轉換
-
-正常路徑：
-
-`queued → checking → downloading → verifying → backing_up → installing → building → restarting → health_checking → completed`
-
-例外路徑：
-
-- `checking` 到 `backing_up` 任一階段可轉 `failed`；若尚未切換現行版本，不必 rollback。
-- `installing`、`building`、`restarting`、`health_checking` 失敗時轉 `rolling_back`。
-- `rolling_back → rolled_back` 或 `rolling_back → failed`。
-- Terminal states：`completed`、`rolled_back`、`failed`。Terminal state 不得回到執行中狀態。
-- v1 同一台 Updater 同時只允許一個 active Job。
-
-### 6.3 逾時與重試
-
-| 操作 | 建議 timeout | 自動重試 |
+| 操作 | Contract requirement | retry |
 | --- | ---: | ---: |
-| Agent 呼叫 Server | 15 秒 | 最多 3 次，指數退避加 jitter |
-| Agent 呼叫 Updater 一般 API | 10 秒 | 最多 3 次 |
-| 下載 Package | 30 分鐘 | 最多 3 次，可續傳則續傳 |
-| Build | 45 分鐘 | 0 次；失敗後進 rollback |
-| Restart | 5 分鐘 | 1 次 |
-| Health check | 10 分鐘 | 間隔 10 秒持續檢查 |
-| Rollback | 20 分鐘 | 1 次 |
+| Agent→Server | 15 秒 | 最多 3 次，exponential backoff + jitter |
+| Agent→Updater 一般 API | 10 秒 | 最多 3 次 |
+| Artifact download | 30 分鐘 | 最多 3 次；可續傳則續傳 |
+| Managed runtime startup + health convergence | **60 分鐘** | health probe 每 10 秒；不另設 Build timeout |
+| Rollback restart + health convergence | 20 分鐘 | 最多 1 次 |
 
-Agent 重啟後必須從 SQLite 讀取 active Job，先查詢 Updater 狀態，再決定繼續監控或補回報 Server，不可直接重送新的更新。Updater 重啟後必須從持久化 Job journal 恢復，不能只保存於記憶體。
+60 分鐘 window 包含 SlamCoreWeb startup 自行進行的 ROS reconcile/build。Updater 不呼叫 Build Manager，也不設 45-minute Build operation。
 
-## 7. Release Package Format
+Updater journal 必須在 destructive/externally visible steps 前後 durable checkpoint，並以 idempotent recovery 收斂：
 
-### 7.1 命名
+1. active-link mutation 前 crash：保留舊 active link/marker，restart 後可重做 staging/activation；不得 rollback workspace state。
+2. link mutation 後、該 mutation durable checkpoint 前 crash：recovery 必須由 filesystem link、previous release journal 與 marker 判斷並完成 activation 或 rollback，不能假設 checkpoint 代表實際 filesystem；不得啟動不確定 release。
+3. marker commit 後 crash：marker 是 committed active release；recovery 從 managed runtime restart/health verification 繼續。若無法健康則 rollback link **及 marker**。
+4. 所有 recovery/rollback 均不得修改 `.slamcore_build_manifest.json` 或 unrelated workspace state。
 
-```text
-SlamCoreWeb.<semver>.zip
-```
+Agent restart 從本地 persistent job 恢復並先查 Updater；不得建立新 job。Server 離線時 terminal result 必須保存後補送。
 
-範例：`SlamCoreWeb.1.0.6.zip`。檔名版本、manifest 版本與 `.slamcore_release` 版本必須完全相同。
+## 8. Contract 2.0 release package format
 
-### 7.2 ZIP 根目錄
-
-ZIP 解開後必須只有一個產品根目錄：
+Archive 名稱為 `SlamCoreWeb.<semver>.zip`，解開後只有一個 `SlamCoreWeb/` product root。必須包含：
 
 ```text
 SlamCoreWeb/
-├── .slamcore_release
-├── .slamcore_build_manifest.json
-├── docker-compose.yml
+├── .slamcore-package.json
+├── docker/
 ├── scripts/
-├── src/
-└── config/
+├── app/
+└── pkgs/
 ```
 
-禁止 ZIP path traversal、絕對路徑、超出根目錄的 symlink，以及大小寫衝突檔名。Updater 必須先解到 staging 目錄並驗證，不能直接覆寫現行 Release。
+其他 runtime content 可存在。Archive 不得有 path traversal、absolute path、root 外 symlink、大小寫 collision 或 Git metadata。Updater 僅解至 staging；不得以 mirror/delete semantics 套用到 workspace root。
 
-### 7.3 `.slamcore_release`
+### 8.1 Package metadata：`SlamCoreWeb/.slamcore-package.json`
 
-v1 使用 UTF-8、LF、`KEY=VALUE`：
+這是 archive 內 strict JSON metadata，由 `schemas/release/slamcore-package.schema.json` 定義。`formatVersion` 為 `2`、`contractVersion` 為 `2.0`；`product`、`version`、`platform` 與 `minimumUpdaterVersion` 必須相容。Archive filename、request `targetVersion` 與 metadata `version` 必須完全一致。不相容必須在 active-link mutation 前以 `INCOMPATIBLE_RELEASE` 失敗。
 
-```dotenv
-FORMAT_VERSION=1
-PRODUCT=SlamCoreWeb
-VERSION=1.0.6
-PLATFORM=jetson-orin
-MIN_UPDATER_VERSION=1.0.0
-CONTRACT_VERSION=1.1
-```
+Contract 2.0 package **不得依賴** `.slamcore_release` 或 `.slamcore_build_manifest.json` 作為 metadata；後者無需存在於 ZIP，也不得被 Updater 驗證。
 
-必要欄位缺少、版本不一致或平台不符時拒絕更新並回報 `INCOMPATIBLE_RELEASE`。
+### 8.2 Workspace active release marker：`<workspace>/.slamcore_release`
 
-### 7.4 `.slamcore_build_manifest.json`
+`.slamcore_release` 僅是 workspace-level **active release marker**，由 Updater ownership。格式為 UTF-8、LF、exactly one SemVer line（例如 `1.0.6\n`），不得為 `KEY=VALUE`。它不在 release ZIP 內。
 
-```json
-{
-  "schemaVersion": 1,
-  "buildMode": "incremental",
-  "packages": [
-    "lp_imu",
-    "lp_bringup"
-  ],
-  "healthChecks": [
-    {
-      "type": "dockerContainer",
-      "name": "slamcore-web",
-      "expectedState": "running",
-      "timeoutSeconds": 300
-    }
-  ]
-}
-```
+Activation 對 active link 與 marker 的 committed pair 負責：marker 以 same-directory temporary file、flush/fsync 及 atomic rename 寫入。Rollback 必須將 marker 改回 previous active version。SlamCoreWeb startup 可讀 marker 以 reconcile build state，但不得將它當 package metadata。這個 filename 在 Contract 2.0 不承擔兩種格式或責任。
 
-規則：
+### 8.3 Integrity order
 
-- `schemaVersion` 必須為 Updater 支援的版本。
-- `buildMode` v1 僅允許 `incremental` 或 `none`。
-- `packages` 是 ROS 2 package name，不是檔案路徑；不得重複。
-- Updater 必須驗證 package 存在後才呼叫 build manager。
-- `healthChecks` 可為空陣列，但欄位必須存在。
-- JSON 不允許註解。
+Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解壓、staging 或 mutation active state。SHA 成功後才安全解壓/validate `.slamcore-package.json`。2.0 仍不要求 TLS、authentication 或 package signature。
 
-### 7.5 完整性驗證
+## 9. Contract 2.0 acceptance cases
 
-Server 保存整個 ZIP 的 SHA-256；Agent 原樣傳給 Updater；Updater 下載完成後自行計算並比較。SHA-256 不一致時不得解壓、建置或切換版本。
+1. Artifact SHA mismatch 在 extraction/activation 前到 `failed`，active link、marker 與 workspace state 不變。
+2. `.slamcore-package.json` 缺漏、strict schema invalid、version/platform/contract/minimum Updater incompatible，在 activation 前回 `INCOMPATIBLE_RELEASE`。
+3. 正常 update 依第 6 節路徑 activation，SlamCoreWeb startup 自行 reconcile，健康後 `completed`。
+4. 新 managed runtime 在 60 分鐘內未健康：`rolling_back`，previous link/marker/runtime 健康後 `rolled_back`。
+5. active-link mutation 前 crash 依第 7 節恢復且舊 release 保持 active。
+6. active-link mutation 後、durable checkpoint 前 crash 不會把 journal 當 filesystem truth，最後完成或 rollback 一致 pair。
+7. marker commit 後 crash 從 restart/health checking 恢復，失敗時 marker/link 一起 rollback。
+8. update 與 rollback 前後 `.slamcore_build_manifest.json` bytes、metadata 與 existence 不被 Updater 改變/刪除。
+9. stale Build Manager state 由 SlamCoreWeb startup 依 active release 自行 reconcile，不形成 Updater public `building` state。
+10. 任意未知未來 `.slamcore_build_manifest.json` schema/content 不會造成 Updater rejection。
+11. unrelated workspace-level files/directories 在 deployment、cleanup 與 rollback 前後保持不變。
+12. idempotent retry、Agent restart recovery、Server offline result replay 維持正確。
 
-本次需求不定義 TLS、憑證或套件簽章；這些屬後續安全版本的擴充範圍。即使使用內網 HTTP，SHA-256 完整性驗證仍為必要步驟。
+## 10. 1.x → 2.0 migration
 
-## 8. 資料持久化與一致性
+1. Contract repository consumer pin 升至 reviewed 2.0 commit/tag；Server、Agent、Updater 一起改用 runtime `2.0`，不可混用 public states。
+2. Release producer 停止建立 ZIP-root `.slamcore_release` KEY=VALUE 與 contract build manifest；在 single product root 加入 `.slamcore-package.json` format 2。
+3. Updater 移除 `building`、manifest parser/build invocation/45-minute Build timeout；加入 60-minute startup/health convergence、preservation tests 與 crash-boundary recovery。
+4. 既有 workspace `.slamcore_release` 若是 plain SemVer line，保留為 active marker；若曾是 1.x KEY=VALUE package metadata，必須在首次 2.0 activation **前由明確的一次性 operator migration** 轉為 active SemVer marker。Updater 2.0 不把兩種格式猜測為同一責任。
+5. SlamCoreWeb startup 讀 active marker並自行 reconcile `.slamcore_build_manifest.json`；其 internal schema 可獨立演進。
+6. 1.x in-flight jobs 必須在升級前完成/終止；2.0 不接受或恢復含 `building` 的 1.x public journal 為 2.0 job。
 
-- Server PostgreSQL 是中央 Job 與 Release metadata 的 system of record。
-- Agent SQLite 保存 Device 設定、Server Job ID、Updater Job 狀態、最後成功同步時間與待補送事件。
-- Updater 保存本地 Job journal、現行版本、前一健康版本與備份位置。
-- 三端以 `jobId`、`deviceId`、`targetVersion` 關聯；禁止用 message 文字判斷狀態。
-- Agent 對 Server 採 at-least-once 回報；Server API 必須 idempotent。
-- 網路中斷時 Agent 將最新狀態與 terminal result 保存在 SQLite，恢復後補送。
+## 11. 後續範圍
 
-## 9. v1 驗收案例
-
-1. 設備註冊與重複註冊結果一致。
-2. 無更新時 Server 回 `204`，Agent 不建立本地 Job。
-3. 同一 Server Job 重送給 Updater 不會啟動第二次更新。
-4. ZIP SHA-256 不符時停在安裝前並回 `failed`。
-5. platform 或 minimum updater version 不符時回 `INCOMPATIBLE_RELEASE`。
-6. 正常更新完整經過合法狀態並到達 `completed`。
-7. 建置失敗會 rollback，舊版本健康後到達 `rolled_back`。
-8. Agent 在更新中重啟後能恢復追蹤，不重複觸發更新。
-9. Server 暫時離線時更新結果保存在 SQLite，恢復後成功補送。
-10. 三個 Repository 的規格文件 Contract version 與 SHA-256 相同。
-
-## 10. Codex 跨專案執行計畫
-
-### Phase 0：建立整合基準
-
-先在規格主控 Repository 建立本文件，再複製到另外兩個 Repository。此階段只更新契約文件、`AGENTS.md`、`docs/CODEX_HANDOFF.md` 與 `README.md`，不改產品程式碼。
-
-要求 Codex：
-
-- 盤點現有 API、DTO、狀態與套件格式。
-- 建立差異表：`Existing / Spec v1 / Required change / Repository owner`。
-- 不得自行改動本文件的公開契約；若發現不可實作項目，先列為 blocker。
-- 在三個專案的 `AGENTS.md` 加入跨專案契約約束。
-- 在 `docs/CODEX_HANDOFF.md` 記錄目前符合度、未完成項目及相依 PR。
-- 在 `README.md` 加入角色、部署方式與規格文件連結。
-
-### Phase 1：SlamCore-Updater
-
-分支：`feature/ota-contract-v1-updater`
-
-優先完成 Updater API、state machine、Job journal、package validation 與 rollback，因為 Agent 依賴其行為。
-
-### Phase 2：SlamCore-Agent
-
-分支：`feature/ota-contract-v1-agent`
-
-在 Updater v1 contract 穩定後，完成 Server polling、Updater client、SQLite recovery、idempotency 與狀態補送。
-
-### Phase 3：SlamCore-Server
-
-分支：`feature/ota-contract-v1-server`
-
-最後完成 Device、Release、Update Job API、PostgreSQL migrations、狀態驗證及冪等處理。
-
-### Phase 4：整合驗證
-
-分支名稱依各 Repository 慣例；建立三端測試環境，至少涵蓋第 9 節全部案例。若實作發現契約需變更，回到 Phase 0 修改規格並同步 Contract version，不得在測試中以私有例外繞過。
-
-## 11. Codex 執行指令
-
-以下指令在每個 Repository 根目錄個別執行。先確認工作樹乾淨並依專案實際預設分支調整起點。
-
-### 11.1 規格主控 Repository
-
-```bash
-git switch main
-git pull --ff-only
-git switch -c docs/ota-integration-spec-v1
-mkdir -p docs
-# 將本文件放到 docs/SlamCore-OTA-Integration-Spec.md
-codex "請先閱讀 AGENTS.md、docs/CODEX_HANDOFF.md、README.md 與 docs/SlamCore-OTA-Integration-Spec.md。依規格執行 Phase 0：盤點現有契約並建立差異表，只修改文件，不修改產品程式碼。更新 AGENTS.md、docs/CODEX_HANDOFF.md 與 README.md；保留既有有效內容。完成後列出變更摘要、發現的 blocker、跨 Repository 相依項目與驗證結果。"
-```
-
-### 11.2 SlamCore-Updater
-
-```bash
-git switch main
-git pull --ff-only
-git switch -c feature/ota-contract-v1-updater
-codex "請完整閱讀 AGENTS.md、docs/CODEX_HANDOFF.md、README.md 與 docs/SlamCore-OTA-Integration-Spec.md，依 Phase 1 實作 Updater。先分析既有更新、Docker、build manager 與 rollback 流程，保留現有功能；再完成 API、冪等、持久化 state machine、package 驗證、重啟恢復與測試。同步更新 AGENTS.md、docs/CODEX_HANDOFF.md、README.md。不得自行修改跨專案契約；若契約不可實作，停止相關變更並列出 blocker。最後執行可用測試並提供結果。"
-```
-
-### 11.3 SlamCore-Agent
-
-```powershell
-git switch main
-git pull --ff-only
-git switch -c feature/ota-contract-v1-agent
-codex "請完整閱讀 AGENTS.md、docs/CODEX_HANDOFF.md、README.md 與 docs/SlamCore-OTA-Integration-Spec.md，依 Phase 2 建立或調整 .NET 8 Windows Service Agent。完成 Server client、Updater client、SQLite persistence、active Job recovery、冪等、防重複更新與離線補送；不得建立 GUI。同步更新 AGENTS.md、docs/CODEX_HANDOFF.md、README.md，並加入 contract tests。不得自行修改跨專案契約；若契約不可實作，列出 blocker。最後執行 dotnet build 與 dotnet test 並提供結果。"
-```
-
-### 11.4 SlamCore-Server
-
-```powershell
-git switch main
-git pull --ff-only
-git switch -c feature/ota-contract-v1-server
-codex "請完整閱讀 AGENTS.md、docs/CODEX_HANDOFF.md、README.md 與 docs/SlamCore-OTA-Integration-Spec.md，依 Phase 3 建立或調整 .NET 8 ASP.NET Core Windows Service。完成 Device、Release、Update Job API、PostgreSQL migrations、狀態轉換驗證、冪等與歷史查詢；使用 Kestrel 背景執行，不建立 GUI。同步更新 AGENTS.md、docs/CODEX_HANDOFF.md、README.md，並加入 contract/integration tests。不得自行修改跨專案契約；若契約不可實作，列出 blocker。最後執行 dotnet build 與 dotnet test 並提供結果。"
-```
-
-### 11.5 三端最終驗證提示
-
-```text
-請依 docs/SlamCore-OTA-Integration-Spec.md 第 9 節建立並執行跨專案驗收。
-先確認三份規格文件 Contract version 與 SHA-256 相同，再驗證正常更新、重送、斷線恢復、Agent 重啟、SHA-256 錯誤、平台不相容、建置失敗與 rollback。
-請輸出每個案例的前置條件、操作、預期結果、實際結果與證據；不要在未通過時修改契約或放寬 assertion。
-```
-
-## 12. 各專案文件必須加入的內容
-
-### `AGENTS.md`
-
-- 本 Repository 在 OTA 架構中的責任邊界。
-- `docs/SlamCore-OTA-Integration-Spec.md` 是跨專案公開契約。
-- 修改 API、DTO、state 或 package format 前，必須先更新規格與 Contract version。
-- 不得破壞未知欄位容忍、冪等及重啟恢復要求。
-
-### `docs/CODEX_HANDOFF.md`
-
-- 目前 Contract version。
-- 已實作與尚未實作的規格章節。
-- 已知 blocker、migration 注意事項及跨 Repository PR/commit 參照。
-- 最近一次 contract/integration test 結果。
-
-### `README.md`
-
-- 元件角色及部署平台。
-- 背景服務安裝與啟動方式。
-- 設定檔及 DB 位置。
-- API 或 client 使用範例。
-- 連到本整合規格、故障排除及 rollback 說明。
-
-## 13. 後續版本待辦（不納入 v1 實作）
-
-- 驗證與授權。
-- HTTPS、憑證與 package signature。
-- Server push 或訊息佇列。
-- 多 Jetson 對單一 Agent。
-- 分批發布、維護時段、暫停與取消。
-- OpenAPI 文件自動產生 client，以及三端 schema diff CI。
+Authentication、HTTPS、certificate、package signature、rollout waves、pause/cancel、message queue 仍不在 2.0。產品實作只能在本 contract 合併後各自升級；本 repository 不包含任何 runtime implementation。

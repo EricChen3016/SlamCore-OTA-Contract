@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/release/slamcore-package.schema.json",
+  "title": "SlamCore release package metadata",
+  "description": "The parsed contents of SlamCoreWeb/.slamcore-package.json inside a Contract 2.0 release archive.",
+  "type": "object",
+  "required": ["formatVersion", "product", "version", "platform", "minimumUpdaterVersion", "contractVersion"],
+  "properties": {
+    "formatVersion": {"const": 2},
+    "product": {"const": "SlamCoreWeb"},
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},
+    "platform": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "minimumUpdaterVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},
+    "contractVersion": {"const": "2.0"}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,8 @@
+{
+  "formatVersion": 2,
+  "product": "SlamCoreWeb",
+  "version": "1.0.6",
+  "platform": "jetson-orin",
+  "minimumUpdaterVersion": "2.0.0",
+  "contractVersion": "2.0"
+}

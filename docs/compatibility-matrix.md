@@ -1,6 +1,13 @@
 # Compatibility matrix
 
-| Contract | Server | Agent | Updater | Status |
-| --- | --- | --- | --- | --- |
-| contract-v1.1.0 | TBD | TBD | TBD | Draft |
-| contract-v1.0.0 | TBD | TBD | TBD | Draft |
+| Contract | Runtime contractVersion | Server | Agent | Updater | Package metadata | Public build state | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| contract-v2.0.0 | `2.0` | TBD (coordinated upgrade required) | TBD (coordinated upgrade required) | TBD; currently pinned to `2d76fe8…` | `SlamCoreWeb/.slamcore-package.json` format 2 | none; startup is runtime-internal | Draft breaking release |
+| contract-v1.1.0 | `1.1` | TBD | TBD | pinned legacy baseline | ZIP-root `.slamcore_release` KEY=VALUE plus required build manifest | `building` | Legacy; incompatible with 2.0 |
+| contract-v1.0.0 | `1.0` | TBD | TBD | TBD | v1 package format | `building` | Legacy |
+
+## Compatibility rules
+
+- Contract 1.x and 2.0 cannot participate in the same in-flight job. Finish or terminate 1.x jobs before upgrading all API participants.
+- `/api/v1` remains the HTTP endpoint generation; the header and DTO discriminator select runtime Contract `2.0`.
+- A 2.0 Updater validates `.slamcore-package.json`, never a Build Manager manifest, and maintains workspace `.slamcore_release` solely as the active SemVer marker.

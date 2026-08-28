@@ -1,1 +1,1 @@
-{"contractVersion":"1.1","jobId":"job-01J5QZ9WZ7H1","targetVersion":"1.0.6","packageUrl":"http://server.example/releases/SlamCoreWeb.1.0.6.zip","packageSha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","platform":"jetson-orin"}
+{"contractVersion":"2.0","jobId":"job-01J5QZ9WZ7H1","targetVersion":"1.0.6","packageUrl":"http://server.example/releases/SlamCoreWeb.1.0.6.zip","packageSha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","platform":"jetson-orin"}
