@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-- Contract repository initialized at version `1.0.0`; runtime contract version is `1.0`.
+- Current repository version is `1.1.0`; runtime contract version is `1.1`.
 - Integration documentation, two OpenAPI 3.1 documents, six Draft 2020-12 schemas, valid examples, validation tooling, CI, and governance are present.
 - Validate with `python -m pip install -r requirements-dev.txt` followed by `python scripts/validate-contracts.py`.
 

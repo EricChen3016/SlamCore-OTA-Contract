@@ -1,7 +1,7 @@
 # SlamCore OTA Integration Specification v1
 
 > 文件狀態：Draft for implementation  
-> Contract version：`1.0`  
+> Contract version：`1.1`
 > 適用專案：`SlamCore-Server`、`SlamCore-Agent`、`SlamCore-Updater`  
 > 建議存放路徑：`docs/SlamCore-OTA-Integration-Spec.md`
 
@@ -24,7 +24,7 @@
 ### 1.2 相容性規則
 
 - API 路徑固定使用 `/api/v1`。
-- `contractVersion` 使用 `major.minor`，本版為 `1.0`。
+- `contractVersion` 使用 `major.minor`，本版為 `1.1`。
 - 新增 optional 欄位屬向後相容，可提升 minor version。
 - 刪除或更名欄位、改變欄位型別、改變狀態語意、改變必要檔案，屬破壞性變更，必須提升 major version。
 - 接收端必須忽略未知 JSON 欄位；不得因 minor version 新增欄位而失敗。
@@ -51,7 +51,7 @@
 ```http
 Accept: application/json
 Content-Type: application/json
-X-SlamCore-Contract-Version: 1.0
+X-SlamCore-Contract-Version: 1.1
 X-Correlation-Id: <uuid>
 ```
 
@@ -101,7 +101,7 @@ Base URL：`http://<server-host>:5000/api/v1`
 
 ```json
 {
-  "contractVersion": "1.0",
+  "contractVersion": "1.1",
   "machineName": "Machine-PC-01",
   "agentVersion": "1.0.0",
   "updaterEndpoint": "http://192.168.0.50:5000",
@@ -135,7 +135,7 @@ Base URL：`http://<server-host>:5000/api/v1`
 
 ```json
 {
-  "contractVersion": "1.0",
+  "contractVersion": "1.1",
   "jobId": "job-01J5QZ9WZ7H1",
   "targetVersion": "1.0.6",
   "packageUrl": "http://server/releases/SlamCoreWeb.1.0.6.zip",
@@ -154,7 +154,7 @@ Base URL：`http://<server-host>:5000/api/v1`
 
 ```json
 {
-  "contractVersion": "1.0",
+  "contractVersion": "1.1",
   "state": "building",
   "progressPercent": 65,
   "message": "Building changed ROS 2 packages",
@@ -185,7 +185,7 @@ Base URL：`http://<jetson-host>:5000/api/v1`
 
 ```json
 {
-  "contractVersion": "1.0",
+  "contractVersion": "1.1",
   "serviceVersion": "1.0.0",
   "platform": "jetson-orin",
   "currentReleaseVersion": "1.0.5",
@@ -196,6 +196,10 @@ Base URL：`http://<jetson-host>:5000/api/v1`
 }
 ```
 
+`idle` 表示 Updater service 正常可用且目前沒有 active Job；此時
+`activeJobId` 應為 `null`。`queued` 不表示 service 沒有 active Job，而是表示一個
+Job 已接受但尚未開始執行。
+
 ### 5.2 啟動更新
 
 `POST /update`
@@ -204,7 +208,7 @@ Header：`Idempotency-Key: <server-jobId>`
 
 ```json
 {
-  "contractVersion": "1.0",
+  "contractVersion": "1.1",
   "jobId": "job-01J5QZ9WZ7H1",
   "targetVersion": "1.0.6",
   "packageUrl": "http://server/releases/SlamCoreWeb.1.0.6.zip",
@@ -230,7 +234,7 @@ Header：`Idempotency-Key: <server-jobId>`
 
 ```json
 {
-  "contractVersion": "1.0",
+  "contractVersion": "1.1",
   "jobId": "job-01J5QZ9WZ7H1",
   "state": "building",
   "progressPercent": 65,
@@ -257,6 +261,7 @@ Header：`Idempotency-Key: rollback:<jobId>`
 
 | state | 執行端 | progress 建議區間 | 說明 |
 | --- | --- | ---: | --- |
+| `idle` | Updater service | 不適用 | Service 正常可用且目前沒有 active Job；`activeJobId` 應為 `null` |
 | `queued` | Agent / Updater | 0 | 已接受，尚未執行 |
 | `checking` | Updater | 1–5 | 檢查版本、空間、平台與相容性 |
 | `downloading` | Updater | 6–25 | 下載到暫存檔 |
@@ -272,6 +277,12 @@ Header：`Idempotency-Key: rollback:<jobId>`
 | `rolled_back` | Updater | 100 | 舊版本恢復健康；原更新仍視為失敗 |
 
 狀態字串固定為小寫 snake_case。Server、Agent 與 Updater 必須使用同一組名稱。
+
+`idle` 是 service/no-active-job 狀態，不是 Update Job lifecycle 的執行狀態。
+Service status 在沒有 active Job 時可以回報 `idle`；已接受 Job 的 status 必須從
+`queued` 開始，不應使用 `idle`。Updater OpenAPI 的共用 `State` enum 同時供
+service status 與 accepted response 引用，因此 machine-verifiable enum 包含
+`idle`；各 DTO 仍須遵守上述適用範圍。
 
 ### 6.2 合法轉換
 
@@ -337,7 +348,7 @@ PRODUCT=SlamCoreWeb
 VERSION=1.0.6
 PLATFORM=jetson-orin
 MIN_UPDATER_VERSION=1.0.0
-CONTRACT_VERSION=1.0
+CONTRACT_VERSION=1.1
 ```
 
 必要欄位缺少、版本不一致或平台不符時拒絕更新並回報 `INCOMPATIBLE_RELEASE`。
