@@ -16,3 +16,13 @@ This repository is the single authoritative source for the SlamCore OTA contract
 Codex may edit specifications, OpenAPI documents, JSON Schemas, examples, validation tooling, CI, and governance documentation in this repository. It must not add Server, Agent, or Updater runtime implementations, a database, a UI, authentication, or transport encryption. It must not modify any other repository.
 
 Do not create or push tags from a feature branch. A human creates `contract-v*` tags only after review, validation, and merge.
+
+## GitHub operations
+
+Before using GitHub CLI commands that infer the repository from Git:
+
+1. Check `git remote -v`.
+2. If `origin` is missing, add: `https://github.com/EricChen3016/SlamCore-OTA-Contract.git`
+3. Use `--repo EricChen3016/SlamCore-OTA-Contract` for GitHub CLI commands.
+4. Never force-push unless explicitly requested.
+5. Run the required build and test commands before creating a pull request.
