@@ -20,7 +20,7 @@ A release archive uses `SlamCoreWeb/.slamcore-package.json` for strict package m
 
 ## Versions and compatibility
 
-Repository releases use SemVer (`2.0.0` in `VERSION`); runtime payloads and `X-SlamCore-Contract-Version` use major/minor (`2.0`). Contract 2.0 is breaking: 1.x consumers cannot send `building`, parse the former KEY=VALUE `.slamcore_release`, or require the former build manifest. See the [migration section](docs/SlamCore-OTA-Integration-Spec.md#10-1x--20-migration) and [compatibility matrix](docs/compatibility-matrix.md).
+Repository releases use SemVer (`2.0.1` in `VERSION`); runtime payloads and `X-SlamCore-Contract-Version` use major/minor (`2.0`). Contract 2.0 is breaking: 1.x consumers cannot send `building`, parse the former KEY=VALUE `.slamcore_release`, or require the former build manifest. See the [migration section](docs/SlamCore-OTA-Integration-Spec.md#10-1x--20-migration) and [compatibility matrix](docs/compatibility-matrix.md).
 
 ## Validate locally
 
@@ -35,12 +35,12 @@ The validator checks every JSON document/schema, examples, OpenAPI references an
 
 ```bash
 git submodule add <contract-repository-url> contracts/slamcore-ota
-git -C contracts/slamcore-ota checkout contract-v2.0.0
+git -C contracts/slamcore-ota checkout contract-v2.0.1
 git add contracts/slamcore-ota
 git commit -m "chore: upgrade SlamCore OTA contract to 2.0"
 ```
 
-Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. After merge and CI, a human—not a feature branch—may create `contract-v2.0.0`.
+Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. After merge and CI, a human—not a feature branch—may create `contract-v2.0.1`.
 
 ## FAQ
 

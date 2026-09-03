@@ -1,7 +1,7 @@
 # SlamCore OTA Integration Specification v2
 
 > 文件狀態：Draft for implementation
-> Repository version：`2.0.0`
+> Repository version：`2.0.1`
 > Runtime contract version：`2.0`
 > 適用專案：`SlamCore-Server`、`SlamCore-Agent`、`SlamCore-Updater`
 
@@ -49,6 +49,10 @@ Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi
 - `POST /devices/register`：註冊/更新設備，idempotent。
 - `GET /devices/{deviceId}/update`：無命令回 `204`；有命令回 Contract 2.0 update request 加 `createdAtUtc`、`expiresAtUtc`。
 - `POST /devices/{deviceId}/status`：依 `Idempotency-Key: status:<jobId>:<sequence>` 單調回報；舊 sequence 不得覆蓋新狀態。
+  - `sequence` 以 `jobId` 為 scope，由 Agent 分配；第一筆 durably-enqueued distinct status observation 為 `0`，之後每一筆新的 durable observation 必須恰好加 `1`。
+  - retry/replay 既有 observation 不分配新 sequence，必須重用完全相同的 request body、sequence 與 `Idempotency-Key`。
+  - request body 的 `sequence` 必須是非負整數，且 idempotency key 的 sequence suffix 必須與 body 值相同。
+  - Contract 不要求 status 透過 HTTP 抵達 Server 時連續或依 allocation order；Server 對 stale、duplicate 與 transition 的 runtime 處理由 Server implementation 負責。
 - `GET /devices/{deviceId}/history`：newest-first，`limit` 1–200。
 
 Server 的 `jobId` 必須原樣傳至 Agent 與 Updater。

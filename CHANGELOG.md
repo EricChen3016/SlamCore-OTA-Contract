@@ -4,6 +4,13 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-03
+
+### Fixed
+
+- Align Contract 2.0 machine definitions with the existing status sequence and JSON-request correlation requirements: device status now requires the Agent-owned per-job sequence, status idempotency keys use `status:<jobId>:<sequence>`, affected JSON requests require `X-Correlation-Id`, and examples/validation enforce those relationships.
+- Keep the runtime Contract version at `2.0`, the `/api/v1` generation, Server-owned logical `jobId`, and all Server/Agent/Updater responsibility boundaries unchanged.
+
 ## [2.0.0] - 2026-08-28
 
 ### Added

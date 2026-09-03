@@ -2,7 +2,8 @@
 
 | Contract | Runtime contractVersion | Server | Agent | Updater | Package metadata | Public build state | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| contract-v2.0.0 | `2.0` | TBD (coordinated upgrade required) | TBD (coordinated upgrade required) | TBD; currently pinned to `2d76fe8…` | `SlamCoreWeb/.slamcore-package.json` format 2 | none; startup is runtime-internal | Draft breaking release |
+| contract-v2.0.1 | `2.0` | TBD (coordinated upgrade required) | TBD (coordinated upgrade required) | TBD; currently pinned to `2d76fe8…` | `SlamCoreWeb/.slamcore-package.json` format 2 | none; startup is runtime-internal | Draft breaking release with machine-conformance alignment |
+| contract-v2.0.0 | `2.0` | TBD (coordinated upgrade required) | TBD (coordinated upgrade required) | TBD; currently pinned to `2d76fe8…` | `SlamCoreWeb/.slamcore-package.json` format 2 | none; startup is runtime-internal | Initial Draft Contract 2.0 baseline |
 | contract-v1.1.0 | `1.1` | TBD | TBD | pinned legacy baseline | ZIP-root `.slamcore_release` KEY=VALUE plus required build manifest | `building` | Legacy; incompatible with 2.0 |
 | contract-v1.0.0 | `1.0` | TBD | TBD | TBD | v1 package format | `building` | Legacy |
 
