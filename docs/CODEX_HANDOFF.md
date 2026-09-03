@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-- Repository version is `2.0.0`; runtime contract version is `2.0`.
+- Repository version is `2.0.1`; runtime contract version is `2.0`.
 - Contract 2.0 is a breaking correction of the Updater/SlamCoreWeb ownership boundary.
 - The package metadata is strict JSON at `SlamCoreWeb/.slamcore-package.json`; workspace `.slamcore_release` is only a one-line SemVer active marker.
 - Validate with `python -m pip install -r requirements-dev.txt` and `python scripts/validate-contracts.py`.

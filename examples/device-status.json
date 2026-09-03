@@ -1,0 +1,11 @@
+{
+  "contractVersion": "2.0",
+  "state": "queued",
+  "progressPercent": 0,
+  "message": "Update accepted by the device",
+  "errorCode": null,
+  "fromVersion": "1.0.5",
+  "targetVersion": "1.0.6",
+  "observedAtUtc": "2026-08-20T01:31:00Z",
+  "sequence": 0
+}

@@ -2,8 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://slamcore.local/schemas/server-api/device-status.schema.json",
   "title": "DeviceStatus",
+  "description": "An Agent-to-Server observation for one Server-owned logical job. Sequence allocation is scoped per jobId and owned by the Agent. The first durably enqueued distinct observation uses sequence 0; each newly durably enqueued distinct observation increments it by exactly 1. A retry or replay reuses the exact request body, sequence, and Idempotency-Key. HTTP delivery need not arrive contiguously or in allocation order.",
   "type": "object",
-  "required": ["contractVersion", "state", "progressPercent", "message", "errorCode", "fromVersion", "targetVersion", "observedAtUtc"],
+  "required": ["contractVersion", "state", "progressPercent", "message", "errorCode", "fromVersion", "targetVersion", "observedAtUtc", "sequence"],
   "properties": {
     "contractVersion": {"const": "2.0"},
     "state": {"enum": ["queued", "checking", "downloading", "verifying", "backing_up", "installing", "restarting", "health_checking", "completed", "failed", "rolling_back", "rolled_back"]},
@@ -12,7 +13,11 @@
     "errorCode": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*$"},
     "fromVersion": {"type": "string"}, "targetVersion": {"type": "string"},
     "observedAtUtc": {"type": "string", "format": "date-time", "pattern": "Z$"},
-    "sequence": {"type": "integer", "minimum": 0}
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Agent-allocated sequence scoped to the jobId in Idempotency-Key status:<jobId>:<sequence>. The suffix MUST equal this value. Allocation starts at 0 and increments by exactly 1 only for a newly durably enqueued distinct observation; replay reuses the existing value."
+    }
   },
   "additionalProperties": true
 }

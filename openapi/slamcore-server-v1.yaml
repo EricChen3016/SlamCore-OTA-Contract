@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: {title: SlamCore Server Agent API, version: 2.0.0}
+info: {title: SlamCore Server Agent API, version: 2.0.1}
 servers:
   - url: http://{serverHost}:5000/api/v1
     variables:
@@ -8,7 +8,7 @@ paths:
   /devices/register:
     post:
       operationId: registerDevice
-      parameters: [{$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      parameters: [{$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/CorrelationId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
         content:
@@ -29,16 +29,31 @@ paths:
   /devices/{deviceId}/status:
     post:
       operationId: reportDeviceStatus
-      parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      description: |
+        Reports one Agent-owned, durably enqueued status observation for a
+        Server-owned logical job. Sequence allocation is scoped per jobId,
+        starts at 0, and increments by exactly 1 for each newly durably
+        enqueued distinct observation. A retry or replay reuses the exact
+        request body, sequence, and Idempotency-Key. The key MUST be
+        status:<jobId>:<sequence>, and its sequence suffix MUST equal the
+        request body sequence. HTTP delivery may contain gaps or arrive out
+        of allocation order; stale, duplicate, and transition handling is a
+        Server runtime responsibility.
+      parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/CorrelationId'}, {$ref: '#/components/parameters/StatusIdempotencyKey'}]
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '../schemas/server-api/device-status.schema.json'}
+            examples:
+              initialStatus:
+                summary: First durable status observation for job-01J5QZ9WZ7H1
+                externalValue: ../examples/device-status.json
       responses:
         '204': {description: Status stored idempotently}
         '400': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
   /devices/{deviceId}/history:
     get:
       operationId: getDeviceHistory
@@ -56,7 +71,25 @@ paths:
 components:
   parameters:
     ContractVersion: {name: X-SlamCore-Contract-Version, in: header, required: true, schema: {const: '2.0'}}
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: true
+      description: Correlates this JSON request across Contract participants.
+      schema: {type: string}
+      example: 7d6a89e0-7a99-4da6-a281-8e58d7252540
     IdempotencyKey: {name: Idempotency-Key, in: header, required: true, schema: {type: string, minLength: 1, maxLength: 200}}
+    StatusIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Must be status:<jobId>:<sequence>; the sequence suffix must equal body.sequence.
+      schema:
+        type: string
+        minLength: 10
+        maxLength: 200
+        pattern: '^status:[A-Za-z0-9][A-Za-z0-9._-]{0,127}:(0|[1-9][0-9]*)$'
+      example: status:job-01J5QZ9WZ7H1:0
     DeviceId: {name: deviceId, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}}
   schemas:
     Registration:

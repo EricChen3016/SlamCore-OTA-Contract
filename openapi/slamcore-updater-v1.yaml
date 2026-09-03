@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SlamCore Updater API
-  version: 2.0.0
+  version: 2.0.1
   description: Internal HTTP contract; package integrity is enforced with SHA-256.
 servers:
   - url: http://{jetsonHost}:5000/api/v1
@@ -22,6 +22,7 @@ paths:
       operationId: startUpdate
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -49,6 +50,7 @@ paths:
       operationId: rollbackUpdate
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
+        - $ref: '#/components/parameters/CorrelationId'
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
@@ -72,6 +74,13 @@ components:
       in: header
       required: true
       schema: {const: '2.0'}
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: true
+      description: Correlates this JSON request across Contract participants.
+      schema: {type: string}
+      example: 7d6a89e0-7a99-4da6-a281-8e58d7252540
     IdempotencyKey:
       name: Idempotency-Key
       in: header

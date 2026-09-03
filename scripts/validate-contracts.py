@@ -90,6 +90,149 @@ def absolute_refs(document, source: Path) -> None:
             absolute_refs(value, source)
 
 
+def validate_required_header_component(
+    document: dict,
+    source: Path,
+    component_name: str,
+    header_name: str,
+) -> None:
+    parameter = document.get("components", {}).get("parameters", {}).get(component_name)
+    if not isinstance(parameter, dict):
+        fail(source, f"missing required header parameter component: {component_name}")
+        return
+    if parameter.get("name") != header_name or parameter.get("in") != "header":
+        fail(source, f"{component_name} must define the {header_name} header")
+    if parameter.get("required") is not True:
+        fail(source, f"{component_name} must be required")
+
+
+def validate_operation_parameter_ref(
+    document: dict,
+    source: Path,
+    path_name: str,
+    method: str,
+    reference: str,
+) -> None:
+    operation = document.get("paths", {}).get(path_name, {}).get(method)
+    if not isinstance(operation, dict):
+        fail(source, f"missing operation {method.upper()} {path_name}")
+        return
+    references = {
+        parameter.get("$ref")
+        for parameter in operation.get("parameters", [])
+        if isinstance(parameter, dict)
+    }
+    if reference not in references:
+        fail(source, f"{method.upper()} {path_name} must reference {reference}")
+
+
+def validate_machine_conformance(openapi_documents: dict[str, dict]) -> None:
+    status_schema_path = ROOT / "schemas/server-api/device-status.schema.json"
+    status_schema = load_json(status_schema_path)
+    status_example_path = ROOT / "examples/device-status.json"
+    status_example = load_json(status_example_path)
+    if not isinstance(status_schema, dict) or not isinstance(status_example, dict):
+        return
+
+    if "sequence" not in status_schema.get("required", []):
+        fail(status_schema_path, "sequence must remain required")
+    sequence_schema = status_schema.get("properties", {}).get("sequence")
+    if (
+        not isinstance(sequence_schema, dict)
+        or sequence_schema.get("type") != "integer"
+        or sequence_schema.get("minimum") != 0
+    ):
+        fail(status_schema_path, "sequence must remain a non-negative integer")
+
+    correlation_ref = "#/components/parameters/CorrelationId"
+    json_request_operations = {
+        "openapi/slamcore-server-v1.yaml": [
+            ("/devices/register", "post"),
+            ("/devices/{deviceId}/status", "post"),
+        ],
+        "openapi/slamcore-updater-v1.yaml": [
+            ("/update", "post"),
+            ("/rollback", "post"),
+        ],
+    }
+    for relative, operations in json_request_operations.items():
+        document = openapi_documents.get(relative)
+        source = ROOT / relative
+        if not isinstance(document, dict):
+            continue
+        validate_required_header_component(document, source, "CorrelationId", "X-Correlation-Id")
+        correlation = (
+            document.get("components", {})
+            .get("parameters", {})
+            .get("CorrelationId", {})
+        )
+        if not isinstance(correlation.get("example"), str):
+            fail(source, "CorrelationId must provide a string header example")
+        for path_name, method in operations:
+            validate_operation_parameter_ref(
+                document, source, path_name, method, correlation_ref)
+
+    server_relative = "openapi/slamcore-server-v1.yaml"
+    server_path = ROOT / server_relative
+    server = openapi_documents.get(server_relative)
+    if not isinstance(server, dict):
+        return
+    status_key_ref = "#/components/parameters/StatusIdempotencyKey"
+    validate_required_header_component(
+        server, server_path, "StatusIdempotencyKey", "Idempotency-Key")
+    validate_operation_parameter_ref(
+        server, server_path, "/devices/{deviceId}/status", "post", status_key_ref)
+    status_operation = (
+        server.get("paths", {})
+        .get("/devices/{deviceId}/status", {})
+        .get("post", {})
+    )
+    if "409" not in status_operation.get("responses", {}):
+        fail(
+            server_path,
+            "POST /devices/{deviceId}/status must expose idempotency conflict response 409",
+        )
+
+    status_key = (
+        server.get("components", {})
+        .get("parameters", {})
+        .get("StatusIdempotencyKey", {})
+    )
+    key_example = status_key.get("example")
+    key_pattern = status_key.get("schema", {}).get("pattern")
+    if (
+        not isinstance(key_example, str)
+        or not isinstance(key_pattern, str)
+        or re.fullmatch(key_pattern, key_example) is None
+    ):
+        fail(server_path, "status Idempotency-Key example must match its declared format")
+    else:
+        sequence_suffix = key_example.rsplit(":", 1)[-1]
+        if (
+            not isinstance(status_example.get("sequence"), int)
+            or sequence_suffix != str(status_example["sequence"])
+        ):
+            fail(
+                server_path,
+                "status Idempotency-Key example suffix must equal "
+                "examples/device-status.json sequence",
+            )
+
+    external_value = (
+        server.get("paths", {})
+        .get("/devices/{deviceId}/status", {})
+        .get("post", {})
+        .get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("examples", {})
+        .get("initialStatus", {})
+        .get("externalValue")
+    )
+    if external_value != "../examples/device-status.json":
+        fail(server_path, "status request example must reference examples/device-status.json")
+
+
 def main() -> int:
     for path in ROOT.rglob("*.json"):
         document = load_json(path)
@@ -102,6 +245,7 @@ def main() -> int:
                     fail(path, f"invalid Draft 2020-12 schema: {exc}")
 
     mappings = {
+        "examples/device-status.json": "schemas/server-api/device-status.schema.json",
         "examples/update-request.json": "schemas/updater-api/update-request.schema.json",
         "examples/update-status.json": "schemas/common/update-status.schema.json",
         "examples/error-response.json": "schemas/common/error-response.schema.json",
@@ -116,6 +260,7 @@ def main() -> int:
         "openapi/slamcore-server-v1.yaml": {"/devices/register", "/devices/{deviceId}/update", "/devices/{deviceId}/status", "/devices/{deviceId}/history"},
         "openapi/slamcore-updater-v1.yaml": {"/status", "/update", "/update/{jobId}", "/rollback"},
     }
+    openapi_documents: dict[str, dict] = {}
     for relative, required in expected_paths.items():
         path = ROOT / relative
         try:
@@ -123,6 +268,7 @@ def main() -> int:
             if not isinstance(document, dict) or document.get("openapi") != "3.1.0":
                 fail(path, "must be an OpenAPI 3.1.0 mapping")
                 continue
+            openapi_documents[relative] = document
             missing = required - set(document.get("paths", {}))
             if missing:
                 fail(path, f"missing required paths: {sorted(missing)}")
@@ -135,12 +281,18 @@ def main() -> int:
         except Exception as exc:
             fail(path, f"invalid OpenAPI document: {exc}")
 
+    validate_machine_conformance(openapi_documents)
+
     version_path = ROOT / "VERSION"
     version = version_path.read_text(encoding="utf-8").strip()
     if not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version):
         fail(version_path, "must contain a SemVer core version")
-    elif version != "2.0.0":
-        fail(version_path, "Contract 2.0 repository release must be 2.0.0")
+    elif version != "2.0.1":
+        fail(version_path, "Contract 2.0 machine-conformance release must be 2.0.1")
+
+    for relative, document in openapi_documents.items():
+        if document.get("info", {}).get("version") != version:
+            fail(ROOT / relative, f"info.version must match repository VERSION {version}")
 
     for path in [*ROOT.glob("schemas/**/*.json"), *ROOT.glob("openapi/*.yaml")]:
         text = path.read_text(encoding="utf-8")
@@ -161,7 +313,11 @@ def main() -> int:
         for error in ERRORS:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print("Contract validation passed: JSON, schemas, examples, package metadata, active marker, OpenAPI, references, ownership invariants, and VERSION are valid.")
+    print(
+        "Contract validation passed: JSON, schemas, examples, package metadata, "
+        "active marker, OpenAPI, references, status sequence/idempotency, "
+        "JSON-request correlation headers, ownership invariants, and VERSION are valid."
+    )
     return 0
 
 
