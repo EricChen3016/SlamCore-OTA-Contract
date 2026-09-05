@@ -47,7 +47,7 @@
 
 Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi/slamcore-server-v1.yaml` 及其 referenced schemas 為準。
 
-- `POST /devices/register`：註冊/更新設備，idempotent。
+- `POST /devices/register`：註冊/更新設備，idempotent。支援 explicit rollback 的 Agent 必須在 optional `capabilities` 完整快照中宣告 `explicit-rollback-v1`；欄位缺漏或空陣列代表沒有 optional capability。
 - `GET /devices/{deviceId}/update`：相容用 update-only endpoint；無 update 回 `204`，且永遠不得回傳 rollback command。
 - `GET /devices/{deviceId}/command`：新版 command endpoint；無命令回 `204`，有命令回 `commandType=update|rollback` 的 discriminated command。
 - `POST /devices/{deviceId}/status`：依 `Idempotency-Key: status:<jobId>:<sequence>` 單調回報；舊 sequence 不得覆蓋新狀態。
@@ -65,6 +65,8 @@ Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi
 - Rollback command：獨立 `jobId=R`，要求 `deviceId`、`originalUpdateJobId=U`、`createdAtUtc`、`expiresAtUtc`；不得有 `targetVersion`、`packageUrl`、`packageSha256` 或 `platform`。`R` 是 Server/Agent orchestration 與 status scope，`U` 是 Updater rollback identity。
 
 同一 `U` 最多建立一個 logical rollback command `R`；管理端、delivery 或 restart retry 必須重用同一 `R` 與 `U`。完整 mapping、recovery 與 rollout 見 [Explicit rollback orchestration](explicit-rollback-orchestration.md)。
+
+Server 只有在裝置最近一次成功 registration 的 capability 完整快照包含 exact `explicit-rollback-v1` token 時，才能建立 `R` 或由 `/command` 交付 rollback。每次成功 registration 必須取代、不得 merge 先前 capability；`agentVersion`、runtime `contractVersion=2.0`、呼叫 `/command` 或 feature flag 均不能取代此 device-level gate。未知 capability 不代表支援 rollback。若新 registration 移除 token，pending `R` 必須停止交付並等待相容 registration 或正常到期，且不得改從 `/update` 交付。
 
 Server 不得在 `expiresAtUtc` 當下或之後交付 command。Agent 在第一次呼叫 Updater 前也必須檢查期限；尚未 submit 即過期的 command 不得造成 mutation，並以 terminal `failed`／`COMMAND_EXPIRED` 回報。若 submit 可能已發生（包含 response loss），期限不會取消 operation；Agent 仍使用持久化的同一 `R`、`U` 查詢或 exact-replay，直到 terminal。
 
@@ -183,6 +185,7 @@ Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解�
 16. Agent restart、Server retry、Updater restart 與 accepted-response loss 均不會改變 `R` 或 `U`，也不會建立第二個 physical rollback。
 17. Explicit rollback terminal `rolled_back` 對 Server command `R` 映射為成功，device version 使用 Updater 回報、由 `U` journal 推導的 previous release。
 18. 首次 Updater submission 前過期的 `R` 不會造成 mutation；已 submit 或 response-loss 中的 `R` 即使跨過 expiry，仍以同一 `R`、`U` 恢復到 terminal。
+19. 缺少 `explicit-rollback-v1` capability 的裝置無法建立或接收 rollback；registration capability removal 立即關閉 delivery，且舊 `/update` 永遠不成為 fallback。
 
 ## 10. 1.x → 2.0 migration
 
@@ -196,10 +199,11 @@ Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解�
 ## 11. 2.0.1 → 2.1.0 explicit rollback rollout
 
 1. 既有 `/devices/{deviceId}/update` 保持 update-only；舊 Agent 可繼續正常 update，不會收到 rollback。
-2. Server 先加入 discriminated command persistence 與 `/devices/{deviceId}/command`，但在相容 Agent 部署前不得啟用 rollback command creation。
-3. Agent 升級後只從 `/command` 接收新 command，依 discriminator 分支並 fail closed；SQLite 必須 durable 保存 `R` 與 `U`。
-4. Updater wire API 無需改變；Agent 依既有 `POST /rollback` schema 映射 `R → U`。
-5. 所有 consumer pin reviewed `2.1.0` commit 後，才可啟用 Server explicit rollback product path 與 Jetson HIL。
+2. Server 先加入 registration capability snapshot、discriminated command persistence 與 `/devices/{deviceId}/command`；沒有 exact capability 時禁止建立和交付 rollback。
+3. Agent 升級後只從 `/command` 接收新 command，依 discriminator 分支並 fail closed；SQLite 必須 durable 保存 `R` 與 `U`，完整路徑 ready 後才宣告 `explicit-rollback-v1`。
+4. 確認裝置最近成功 registration 已包含 capability；若後續 registration 移除，Server 必須停止交付 pending rollback。
+5. Updater wire API 無需改變；Agent 依既有 `POST /rollback` schema 映射 `R → U`。
+6. 所有 consumer pin reviewed `2.1.0` commit 且 capability gate 成立後，才可啟用 Server explicit rollback product path 與 Jetson HIL。
 
 ## 12. 後續範圍
 

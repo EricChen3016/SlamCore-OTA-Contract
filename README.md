@@ -6,7 +6,7 @@ The authoritative, machine-verifiable cross-project contract for **SlamCore Serv
 
 Updater owns artifact download and SHA-256 verification, strict package metadata validation, safe staging, active link/marker activation, managed runtime restart and health verification, rollback, and crash recovery. It does **not** own ROS builds.
 
-Repository `2.1.0` adds explicit Server → Agent rollback orchestration without changing the runtime `2.0` Updater wire API. Upgraded Agents poll `GET /devices/{deviceId}/command`, require `commandType=update|rollback`, persist an independent rollback command identity, and map it to the original Updater update identity. See [Explicit rollback orchestration](docs/explicit-rollback-orchestration.md).
+Repository `2.1.0` adds explicit Server → Agent rollback orchestration without changing the runtime `2.0` Updater wire API. Upgraded Agents poll `GET /devices/{deviceId}/command`, require `commandType=update|rollback`, persist an independent rollback command identity, and map it to the original Updater update identity. They advertise `explicit-rollback-v1` during registration; Server gates both rollback creation and delivery on the device's latest successful capability snapshot. See [Explicit rollback orchestration](docs/explicit-rollback-orchestration.md).
 
 `.slamcore_build_manifest.json` is workspace-level internal state owned exclusively by SlamCoreWeb Build Manager. OTA does not define its schema. Updater must never parse, validate, create, mutate, delete, migrate, checkpoint, or rollback it, and deployment must preserve unrelated workspace state.
 
@@ -42,7 +42,7 @@ git add contracts/slamcore-ota
 git commit -m "chore: upgrade SlamCore OTA contract to 2.1.0"
 ```
 
-Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. Enable rollback command creation only after compatible Server and Agent deployments. After merge and CI, a human—not a feature branch—may create `contract-v2.1.0`.
+Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. Enable rollback command creation only after the device's latest successful registration advertises `explicit-rollback-v1`. After merge and CI, a human—not a feature branch—may create `contract-v2.1.0`.
 
 ## FAQ
 

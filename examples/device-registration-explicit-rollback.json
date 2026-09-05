@@ -1,0 +1,12 @@
+{
+  "contractVersion": "2.0",
+  "deviceId": "device-01J5QZ9WZ7H1",
+  "machineName": "slamcore-edge-01",
+  "agentVersion": "1.0.0",
+  "updaterEndpoint": "http://jetson.example:5000/api/v1/",
+  "platform": "jetson-orin",
+  "currentReleaseVersion": "1.0.6",
+  "capabilities": [
+    "explicit-rollback-v1"
+  ]
+}

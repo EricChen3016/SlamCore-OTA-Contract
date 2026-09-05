@@ -14,10 +14,15 @@ paths:
         content:
           application/json:
             schema: {$ref: '#/components/schemas/Registration'}
+            examples:
+              explicitRollbackCapable:
+                summary: Agent explicitly advertises rollback command support
+                externalValue: ../examples/device-registration-explicit-rollback.json
       responses:
         '200': {description: Registered, content: {application/json: {schema: {$ref: '#/components/schemas/RegistrationResult'}}}}
         '400': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
   /devices/{deviceId}/update:
     get:
       operationId: getDeviceUpdate
@@ -26,11 +31,12 @@ paths:
       responses:
         '200': {description: Pending update, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateCommand'}}}}
         '204': {description: No pending update}
+        '400': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
   /devices/{deviceId}/command:
     get:
       operationId: getDeviceCommand
-      description: Returns one Server-owned command with an explicit update or rollback discriminator. Unknown commandType values must fail closed and must never be interpreted as update.
+      description: Returns one Server-owned command with an explicit update or rollback discriminator. Unknown commandType values must fail closed and must never be interpreted as update. A rollback is returned only when the device's latest successful registration advertises explicit-rollback-v1.
       parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}]
       responses:
         '200':
@@ -114,18 +120,7 @@ components:
       example: status:job-01J5QZ9WZ7H1:0
     DeviceId: {name: deviceId, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}}
   schemas:
-    Registration:
-      type: object
-      required: [contractVersion, deviceId, machineName, agentVersion, updaterEndpoint, platform, currentReleaseVersion]
-      properties:
-        contractVersion: {const: '2.0'}
-        deviceId: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}
-        machineName: {type: string, minLength: 1}
-        agentVersion: {type: string}
-        updaterEndpoint: {type: string, format: uri, pattern: '^http://'}
-        platform: {type: string}
-        currentReleaseVersion: {type: string}
-      additionalProperties: true
+    Registration: {$ref: '../schemas/server-api/device-registration.schema.json'}
     RegistrationResult:
       type: object
       required: [deviceId, registered, serverTimeUtc, pollIntervalSeconds]

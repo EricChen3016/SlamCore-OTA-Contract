@@ -5,7 +5,7 @@
 - Repository version is `2.1.0`; runtime contract version remains `2.0`.
 - Contract 2.0 is a breaking correction of the Updater/SlamCoreWeb ownership boundary.
 - The package metadata is strict JSON at `SlamCoreWeb/.slamcore-package.json`; workspace `.slamcore_release` is only a one-line SemVer active marker.
-- Explicit rollback orchestration uses the additive `/devices/{deviceId}/command` endpoint, mandatory `commandType`, independent Server/Agent rollback identity `R`, and original Updater update identity `U`.
+- Explicit rollback orchestration uses the additive `/devices/{deviceId}/command` endpoint, mandatory `commandType`, independent Server/Agent rollback identity `R`, original Updater update identity `U`, and registration capability `explicit-rollback-v1`.
 - Validate with `python -m pip install -r requirements-dev.txt` and `python scripts/validate-contracts.py`.
 
 ## Decided ownership
@@ -24,10 +24,10 @@
 
 ## Required explicit rollback consumer work
 
-1. Server persists explicit command type and `originalUpdateJobId`, creates one rollback identity `R` per successful update `U`, and exposes the new `/command` endpoint while preserving `/update` as update-only.
-2. Agent validates the discriminator, durably persists `R` and `U` before mutation, dispatches rollback using `U`, and reports status to Server under `R`.
+1. Server persists the latest complete registration capability snapshot plus explicit command type and `originalUpdateJobId`, creates one rollback identity `R` per successful update `U` only when `explicit-rollback-v1` is present, and exposes the new `/command` endpoint while preserving `/update` as update-only.
+2. Agent validates the discriminator, durably persists `R` and `U` before mutation, dispatches rollback using `U`, reports status to Server under `R`, and advertises `explicit-rollback-v1` only when the complete path is ready.
 3. Server maps rollback `rolled_back` to successful completion for `R`; update `rolled_back` retains its existing automatic-rollback failure meaning for `U`.
-4. Server and Agent add idempotency, restart, response-loss, pre-submission expiry, post-submission expiry recovery, conflicting-payload, unknown-command, and terminal projection tests.
+4. Server and Agent add registration capability replacement/removal, capability-gated creation/delivery, idempotency, restart, response-loss, pre-submission expiry, post-submission expiry recovery, conflicting-payload, unknown-command, and terminal projection tests.
 5. Updater requires no product logic change; update its Contract gitlink and rerun conformance after this Contract release is reviewed.
 
 See [`explicit-rollback-orchestration.md`](explicit-rollback-orchestration.md) for the authoritative mapping and failure table.

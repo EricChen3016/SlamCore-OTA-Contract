@@ -60,6 +60,27 @@ def validate_invalid_instance(instance_path: Path, schema_path: Path) -> None:
         fail(schema_path, f"invalid-case validation failed: {exc}")
 
 
+def validate_inline_payload(
+    label: str,
+    instance: dict,
+    schema_path: Path,
+    expect_valid: bool,
+) -> None:
+    schema = load_json(schema_path)
+    if schema is None:
+        return
+    try:
+        Draft202012Validator.check_schema(schema)
+        errors = list(Draft202012Validator(
+            schema, format_checker=FormatChecker()).iter_errors(instance))
+        if expect_valid and errors:
+            ERRORS.append(f"{label}: unexpectedly invalid: {errors[0].message}")
+        if not expect_valid and not errors:
+            ERRORS.append(f"{label}: must be rejected by {schema_path.relative_to(ROOT)}")
+    except Exception as exc:
+        fail(schema_path, f"inline payload validation failed for {label}: {exc}")
+
+
 def validate_json_round_trip(path: Path) -> None:
     instance = load_json(path)
     if instance is None:
@@ -302,10 +323,65 @@ def validate_explicit_command_conformance(openapi_documents: dict[str, dict]) ->
     if "originalUpdateJobId" in update:
         fail(update_example_path, "update must omit originalUpdateJobId")
 
+    invalid_variants: dict[str, dict] = {}
+    missing_type = copy.deepcopy(update)
+    missing_type.pop("commandType", None)
+    invalid_variants["update missing commandType"] = missing_type
+
+    unknown_type = copy.deepcopy(update)
+    unknown_type["commandType"] = "reinstall"
+    invalid_variants["unknown commandType"] = unknown_type
+
+    rollback_missing_original = copy.deepcopy(rollback)
+    rollback_missing_original.pop("originalUpdateJobId", None)
+    invalid_variants["rollback missing originalUpdateJobId"] = rollback_missing_original
+
+    contradictory_values = {
+        "targetVersion": "1.0.5",
+        "packageUrl": "http://server.example/releases/SlamCoreWeb.1.0.5.zip",
+        "packageSha256": "0" * 64,
+        "platform": "jetson-orin",
+    }
+    for field, value in contradictory_values.items():
+        contradictory = copy.deepcopy(rollback)
+        contradictory[field] = value
+        invalid_variants[f"rollback containing {field}"] = contradictory
+
+    update_missing_url = copy.deepcopy(update)
+    update_missing_url.pop("packageUrl", None)
+    invalid_variants["update missing packageUrl"] = update_missing_url
+
+    update_missing_sha = copy.deepcopy(update)
+    update_missing_sha.pop("packageSha256", None)
+    invalid_variants["update missing packageSha256"] = update_missing_sha
+
+    update_with_original = copy.deepcopy(update)
+    update_with_original["originalUpdateJobId"] = rollback["originalUpdateJobId"]
+    invalid_variants["update containing originalUpdateJobId"] = update_with_original
+
+    for label, instance in invalid_variants.items():
+        validate_inline_payload(label, instance, schema_path, expect_valid=False)
+
     server_relative = "openapi/slamcore-server-v1.yaml"
     server_path = ROOT / server_relative
     server = openapi_documents.get(server_relative)
     if isinstance(server, dict):
+        legacy_responses = (
+            server.get("paths", {})
+            .get("/devices/{deviceId}/update", {})
+            .get("get", {})
+            .get("responses", {})
+        )
+        if not {"200", "204", "400", "404"}.issubset(legacy_responses):
+            fail(server_path, "legacy /update must expose 200, 204, 400, and 404")
+        command_responses = (
+            server.get("paths", {})
+            .get("/devices/{deviceId}/command", {})
+            .get("get", {})
+            .get("responses", {})
+        )
+        if not {"200", "204", "400", "404"}.issubset(command_responses):
+            fail(server_path, "/command must expose command, empty, validation, and not-found responses")
         command_schema_ref = (
             server.get("paths", {})
             .get("/devices/{deviceId}/command", {})
@@ -350,7 +426,24 @@ def validate_explicit_command_conformance(openapi_documents: dict[str, dict]) ->
     updater_path = ROOT / updater_relative
     updater = openapi_documents.get(updater_relative)
     if isinstance(updater, dict):
+        update_responses = (
+            updater.get("paths", {}).get("/update", {}).get("post", {}).get("responses", {})
+        )
+        if not {"200", "202", "400", "409", "422"}.issubset(update_responses):
+            fail(
+                updater_path,
+                "POST /update must expose replay, accepted, validation, conflict, "
+                "and compatibility responses",
+            )
         rollback_operation = updater.get("paths", {}).get("/rollback", {}).get("post", {})
+        if not {"200", "202", "400", "404", "409"}.issubset(
+            rollback_operation.get("responses", {})
+        ):
+            fail(
+                updater_path,
+                "POST /rollback must expose replay, accepted, validation, "
+                "not-found, and conflict responses",
+            )
         schema_ref = (
             rollback_operation.get("requestBody", {})
             .get("content", {})
@@ -397,6 +490,98 @@ def validate_explicit_command_conformance(openapi_documents: dict[str, dict]) ->
             fail(updater_path, "rollback key pattern must accept rollback:<body.jobId>")
 
 
+def validate_capability_gate_conformance(openapi_documents: dict[str, dict]) -> None:
+    schema_path = ROOT / "schemas/server-api/device-registration.schema.json"
+    example_path = ROOT / "examples/device-registration-explicit-rollback.json"
+    registration = load_json(example_path)
+    if not isinstance(registration, dict):
+        return
+
+    capability = "explicit-rollback-v1"
+    if registration.get("capabilities") != [capability]:
+        fail(example_path, f"must advertise exactly the review-gated {capability} capability")
+
+    legacy_registration = copy.deepcopy(registration)
+    legacy_registration.pop("capabilities", None)
+    validate_inline_payload(
+        "legacy registration without capabilities",
+        legacy_registration,
+        schema_path,
+        expect_valid=True,
+    )
+
+    empty_capabilities = copy.deepcopy(registration)
+    empty_capabilities["capabilities"] = []
+    validate_inline_payload(
+        "registration with empty capabilities",
+        empty_capabilities,
+        schema_path,
+        expect_valid=True,
+    )
+
+    unknown_capability = copy.deepcopy(registration)
+    unknown_capability["capabilities"] = ["future-capability-v1"]
+    validate_inline_payload(
+        "registration with unknown forward-compatible capability",
+        unknown_capability,
+        schema_path,
+        expect_valid=True,
+    )
+
+    duplicate_capability = copy.deepcopy(registration)
+    duplicate_capability["capabilities"] = [capability, capability]
+    validate_inline_payload(
+        "registration with duplicate capabilities",
+        duplicate_capability,
+        schema_path,
+        expect_valid=False,
+    )
+
+    malformed_capability = copy.deepcopy(registration)
+    malformed_capability["capabilities"] = ["Explicit Rollback"]
+    validate_inline_payload(
+        "registration with malformed capability",
+        malformed_capability,
+        schema_path,
+        expect_valid=False,
+    )
+
+    server_relative = "openapi/slamcore-server-v1.yaml"
+    server_path = ROOT / server_relative
+    server = openapi_documents.get(server_relative)
+    if not isinstance(server, dict):
+        return
+    registration_ref = (
+        server.get("components", {})
+        .get("schemas", {})
+        .get("Registration", {})
+        .get("$ref")
+    )
+    if registration_ref != "../schemas/server-api/device-registration.schema.json":
+        fail(server_path, "Registration must reference device-registration.schema.json")
+    registration_example = (
+        server.get("paths", {})
+        .get("/devices/register", {})
+        .get("post", {})
+        .get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("examples", {})
+        .get("explicitRollbackCapable", {})
+        .get("externalValue")
+    )
+    if registration_example != "../examples/device-registration-explicit-rollback.json":
+        fail(server_path, "registration must reference the explicit rollback capability example")
+    command_description = (
+        server.get("paths", {})
+        .get("/devices/{deviceId}/command", {})
+        .get("get", {})
+        .get("description", "")
+    )
+    if capability not in command_description:
+        fail(server_path, "/command must state the explicit rollback capability gate")
+
+
 def main() -> int:
     for path in ROOT.rglob("*.json"):
         document = load_json(path)
@@ -409,6 +594,8 @@ def main() -> int:
                     fail(path, f"invalid Draft 2020-12 schema: {exc}")
 
     mappings = {
+        "examples/device-registration-explicit-rollback.json":
+            "schemas/server-api/device-registration.schema.json",
         "examples/device-status.json": "schemas/server-api/device-status.schema.json",
         "examples/device-command-update.json": "schemas/server-api/device-command.schema.json",
         "examples/device-command-rollback.json": "schemas/server-api/device-command.schema.json",
@@ -446,6 +633,7 @@ def main() -> int:
     )
 
     for relative in [
+        "examples/device-registration-explicit-rollback.json",
         "examples/device-command-update.json",
         "examples/device-command-rollback.json",
         "examples/rollback-request.json",
@@ -481,6 +669,7 @@ def main() -> int:
 
     validate_machine_conformance(openapi_documents)
     validate_explicit_command_conformance(openapi_documents)
+    validate_capability_gate_conformance(openapi_documents)
 
     version_path = ROOT / "VERSION"
     version = version_path.read_text(encoding="utf-8").strip()
@@ -515,7 +704,7 @@ def main() -> int:
     print(
         "Contract validation passed: JSON, schemas, examples, package metadata, "
         "active marker, OpenAPI, references, status and rollback idempotency, "
-        "explicit command variants and invalid cases, JSON round trips, "
+        "explicit command variants and invalid cases, capability gating, JSON round trips, "
         "JSON-request correlation headers, ownership invariants, and VERSION are valid."
     )
     return 0

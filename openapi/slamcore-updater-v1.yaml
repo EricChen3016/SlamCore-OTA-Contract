@@ -30,7 +30,9 @@ paths:
           application/json:
             schema: {$ref: '../schemas/updater-api/update-request.schema.json'}
       responses:
+        '200': {$ref: '#/components/responses/Accepted'}
         '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
         '422': {$ref: '#/components/responses/Error'}
   /update/{jobId}:
@@ -62,7 +64,9 @@ paths:
                 summary: Roll back the retained previous release for original update U
                 externalValue: ../examples/rollback-request.json
       responses:
+        '200': {$ref: '#/components/responses/Accepted'}
         '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
 components:

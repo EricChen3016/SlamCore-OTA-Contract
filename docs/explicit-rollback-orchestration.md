@@ -137,17 +137,21 @@ the immutable original update evidence.
 | Condition | Contract result | Retryable | Terminal for R |
 | --- | --- | --- | --- |
 | `U` does not exist or belongs to another device | `404 RESOURCE_NOT_FOUND` | no | yes |
-| `U` was not a successful update or no retained previous release exists | `404 RESOURCE_NOT_FOUND` | no | yes |
+| `U` was not a successful update | `404 RESOURCE_NOT_FOUND` | no | yes |
+| No retained previous release exists for `U` | `404 RESOURCE_NOT_FOUND` | no | yes |
 | The same `U` was already rolled back | idempotent replay of the same rollback result | no new operation | existing terminal result |
 | The same `R` is delivered again | same immutable command | yes | unchanged |
+| Rollback for the same `U` is already active | recover and track the same `R`, `U`, and `rollback:U` | yes | unchanged |
 | The same `rollback:U` key has a different body | `409 IDEMPOTENCY_CONFLICT` | no | yes |
 | Another deployment mutation is active | `409 UPDATE_ALREADY_RUNNING` | no automatic retry | no operation started |
+| Device lacks `explicit-rollback-v1` | reject creation, or withhold a previously pending `R` until capability returns or expiry | after capable registration | no operation started |
 | `R` expires before its first Updater submission | terminal `failed` with `COMMAND_EXPIRED`; no Updater call | no | yes |
 | Updater/transport is temporarily unavailable | `503 DEPENDENCY_UNAVAILABLE` or transport failure | yes | no |
 | Rollback exceeds its health window | terminal `failed`, normally `OPERATION_TIMEOUT` | no automatic new operation | yes |
 | Previous runtime remains unhealthy after rollback | terminal `failed` with an implementation error code | no automatic new operation | yes |
 | Agent restarts during rollback | recover `R`/`U`, query `U`, then track or exact-replay | yes | unchanged |
 | Server is temporarily unavailable | retain and replay the exact `status:R:<sequence>` outbox item | yes | unchanged locally |
+| `commandType` is absent/unknown or variant fields contradict it | `400 VALIDATION_FAILED` or local Agent rejection before persistence/mutation | no | no operation started |
 
 Permanent pre-submission rejections are reported as terminal failure for `R`.
 Terminal failure does not authorize a second rollback command for the same `U`:
@@ -161,15 +165,41 @@ This is an additive Contract 2.0 extension, so repository SemVer advances from
 `2.0.1` to `2.1.0` while wire `contractVersion` stays `2.0`. No existing field,
 endpoint, update state, or Updater request changes meaning.
 
+### Capability gate
+
+An Agent that has completed its discriminated-command and durable `R`/`U`
+implementation advertises `explicit-rollback-v1` in the optional registration
+`capabilities` array. The array is the Agent's complete current capability set,
+not a patch: each successfully accepted registration replaces the capability
+set stored for that device. An absent or empty array means no optional
+capability. Unknown tokens never imply explicit rollback support.
+
+Server must require the exact `explicit-rollback-v1` token in the device's most
+recent successful registration both when creating `R` and when returning a
+rollback from `/devices/{deviceId}/command`. `agentVersion`, runtime
+`contractVersion: 2.0`, use of `/command`, and an operator feature flag are not
+substitutes for this device-level capability. A feature flag may impose an
+additional restriction.
+
+If a newer registration removes the token while `R` is still pending, Server
+withholds the command; it does not fall back to `/update`. The pending command
+may be delivered after a capable registration returns, provided it has not
+expired; otherwise normal expiry applies. An Agent advertises the token only
+after its schema validation, durable storage migration, dispatch, and recovery
+paths are ready.
+
 Rollout order:
 
 1. Merge and tag this Contract repository release.
-2. Upgrade Server and implement storage plus `/command`; keep `/update`
-   update-only.
+2. Upgrade Server to persist registration capability snapshots and implement
+   storage plus `/command`; keep `/update` update-only and rollback creation
+   disabled without the capability.
 3. Upgrade Agent and switch its polling to `/command` only after it can validate
-   both command variants and durably recover rollback.
-4. Enable creation of rollback commands after compatible Server and Agent are
-   deployed.
+   both command variants, durably recover rollback, and advertise
+   `explicit-rollback-v1`.
+4. Verify the device's most recent successful registration contains the token.
+5. Enable rollback command creation, still enforcing the per-device capability
+   check on creation and delivery.
 
 An old Agent cannot receive rollback from the legacy endpoint. If rollback JSON
 is nevertheless delivered to an old update deserializer, its absent required
@@ -180,11 +210,16 @@ Unknown `commandType` values always fail closed.
 
 ### SlamCore-Server
 
+- Extend `ContractRegistrationRequest`, `DeviceRegistrationAttempt`, `Device`,
+  registration receipt/storage, and EF persistence with the complete capability
+  snapshot. Every successful registration replaces the previous set and feeds
+  both rollback creation and delivery gates.
 - Extend `UpdateJob` and its EF configuration/migration with `commandType` plus
   nullable `originalUpdateJobId`; enforce variant constraints and one `R` per
   `U`. Update `CreateUpdateJobRequest`/`UpdateJobResponse` and add an explicit
   rollback creation DTO/use case that validates original job success, same
-  device, rollbackability, uniqueness, and active-command exclusion.
+  device, rollbackability, uniqueness, active-command exclusion, and the latest
+  successful registration's `explicit-rollback-v1` capability.
 - Extend `DevicesController` with
   `GET /api/v1/devices/{deviceId}/command`; preserve its existing `/update`
   action as update-only. Extend `UpdateJobsController` only for the explicit
@@ -194,12 +229,18 @@ Unknown `commandType` values always fail closed.
   meaning for `U`.
 - Extend `PendingCommandTests`, `Contract2CommandSnapshotTests`,
   `ExpiredUpdateJobLifecycleTests`, `StatusIngestTests`, and
-  `ContractHistoryTests`; add rollback creation/idempotency/concurrency tests.
+  `ContractHistoryTests`; add registration capability replacement,
+  rollback creation/idempotency/concurrency, capability removal, and
+  creation/delivery gate tests.
 
 ### SlamCore-Agent
 
+- Extend `ServerRegistrationRequest` and its durable serialized payload and
+  fingerprint with `capabilities`; advertise `explicit-rollback-v1` only after
+  the whole rollback implementation is active.
 - Replace `AvailableUpdate` and `IServerClient.GetAvailableUpdateAsync` with a
   discriminated command model/client call to `/command`.
+- Retain the legacy `/update` client during coordinated migration if needed.
 - Migrate `SqliteAgentRepository`'s `UpdateJob` table and the core `UpdateJob`
   model to persist `commandType` plus `originalUpdateJobId`; package fields are
   nullable only for rollback rows and protected by variant constraints.
