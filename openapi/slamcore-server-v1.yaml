@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: {title: SlamCore Server Agent API, version: 2.0.1}
+info: {title: SlamCore Server Agent API, version: 2.1.0}
 servers:
   - url: http://{serverHost}:5000/api/v1
     variables:
@@ -14,17 +14,45 @@ paths:
         content:
           application/json:
             schema: {$ref: '#/components/schemas/Registration'}
+            examples:
+              explicitRollbackCapable:
+                summary: Agent explicitly advertises rollback command support
+                externalValue: ../examples/device-registration-explicit-rollback.json
       responses:
         '200': {description: Registered, content: {application/json: {schema: {$ref: '#/components/schemas/RegistrationResult'}}}}
         '400': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
+        '415': {$ref: '#/components/responses/Error'}
   /devices/{deviceId}/update:
     get:
       operationId: getDeviceUpdate
+      description: Legacy-compatible update-only polling endpoint. It never returns rollback commands; upgraded Agents use /devices/{deviceId}/command.
       parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}]
       responses:
         '200': {description: Pending update, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateCommand'}}}}
         '204': {description: No pending update}
+        '400': {$ref: '#/components/responses/Error'}
+        '404': {$ref: '#/components/responses/Error'}
+  /devices/{deviceId}/command:
+    get:
+      operationId: getDeviceCommand
+      description: Returns one Server-owned command with an explicit update or rollback discriminator. Unknown commandType values must fail closed and must never be interpreted as update. A rollback is returned only when the device's latest successful registration advertises explicit-rollback-v1.
+      parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}]
+      responses:
+        '200':
+          description: Pending explicitly discriminated device command
+          content:
+            application/json:
+              schema: {$ref: '../schemas/server-api/device-command.schema.json'}
+              examples:
+                update:
+                  summary: Package-backed update command
+                  externalValue: ../examples/device-command-update.json
+                rollback:
+                  summary: Explicit rollback command referencing an original successful update
+                  externalValue: ../examples/device-command-rollback.json
+        '204': {description: No pending command}
+        '400': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
   /devices/{deviceId}/status:
     post:
@@ -92,18 +120,7 @@ components:
       example: status:job-01J5QZ9WZ7H1:0
     DeviceId: {name: deviceId, in: path, required: true, schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}}
   schemas:
-    Registration:
-      type: object
-      required: [contractVersion, deviceId, machineName, agentVersion, updaterEndpoint, platform, currentReleaseVersion]
-      properties:
-        contractVersion: {const: '2.0'}
-        deviceId: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'}
-        machineName: {type: string, minLength: 1}
-        agentVersion: {type: string}
-        updaterEndpoint: {type: string, format: uri, pattern: '^http://'}
-        platform: {type: string}
-        currentReleaseVersion: {type: string}
-      additionalProperties: true
+    Registration: {$ref: '../schemas/server-api/device-registration.schema.json'}
     RegistrationResult:
       type: object
       required: [deviceId, registered, serverTimeUtc, pollIntervalSeconds]

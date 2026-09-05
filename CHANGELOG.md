@@ -4,6 +4,21 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-06
+
+### Added
+
+- Add the explicitly discriminated `GET /devices/{deviceId}/command` endpoint and machine-readable update/rollback command schema while preserving the existing update-only endpoint.
+- Define independent Server/Agent rollback identity `R`, required `originalUpdateJobId=U`, and the authoritative mapping to Updater body `jobId=U` with `Idempotency-Key: rollback:U`.
+- Add valid update/rollback command and Updater rollback request examples, invalid discriminator/identity/package cases, round-trip checks, and cross-repository implementation guidance.
+- Add the optional registration capability snapshot and require exact `explicit-rollback-v1` advertisement before Server rollback creation or delivery.
+
+### Changed
+
+- Clarify that explicit rollback reuses existing `rolling_back`, `rolled_back`, and `failed` states; `rolled_back` is success for rollback command `R` but remains failed-update recovery for update `U`.
+- Keep runtime `contractVersion` at `2.0` because the new endpoint is additive and existing Server/Agent update plus Updater request semantics remain unchanged.
+- Align Server legacy-update and Updater mutation OpenAPI responses with existing validation and idempotent replay behavior.
+
 ## [2.0.1] - 2026-09-03
 
 ### Fixed

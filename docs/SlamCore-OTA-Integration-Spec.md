@@ -1,7 +1,7 @@
 # SlamCore OTA Integration Specification v2
 
 > 文件狀態：Draft for implementation
-> Repository version：`2.0.1`
+> Repository version：`2.1.0`
 > Runtime contract version：`2.0`
 > 適用專案：`SlamCore-Server`、`SlamCore-Agent`、`SlamCore-Updater`
 
@@ -14,6 +14,7 @@
 - JSON 欄位採 camelCase；時間為 UTC ISO 8601；版本為不含 `v` 的 SemVer；ID 是不透明字串。
 - DTO 接收端容忍未知欄位，以利 2.x minor additions；strict release metadata 不容忍未知欄位。
 - Contract 1.x 與 2.0 不相容。2.0 移除 `building` public state、改變 package metadata，並移除 Updater 的 ROS build ownership。
+- Repository `2.1.0` 在 runtime `2.0` 內新增獨立、可選用的 discriminated command endpoint；既有 update-only endpoint 與 Updater wire contract 不變。
 
 ## 2. 系統責任邊界
 
@@ -46,8 +47,9 @@
 
 Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi/slamcore-server-v1.yaml` 及其 referenced schemas 為準。
 
-- `POST /devices/register`：註冊/更新設備，idempotent。
-- `GET /devices/{deviceId}/update`：無命令回 `204`；有命令回 Contract 2.0 update request 加 `createdAtUtc`、`expiresAtUtc`。
+- `POST /devices/register`：註冊/更新設備，idempotent。支援 explicit rollback 的 Agent 必須在 optional `capabilities` 完整快照中宣告 `explicit-rollback-v1`；欄位缺漏或空陣列代表沒有 optional capability。
+- `GET /devices/{deviceId}/update`：相容用 update-only endpoint；無 update 回 `204`，且永遠不得回傳 rollback command。
+- `GET /devices/{deviceId}/command`：新版 command endpoint；無命令回 `204`，有命令回 `commandType=update|rollback` 的 discriminated command。
 - `POST /devices/{deviceId}/status`：依 `Idempotency-Key: status:<jobId>:<sequence>` 單調回報；舊 sequence 不得覆蓋新狀態。
   - `sequence` 以 `jobId` 為 scope，由 Agent 分配；第一筆 durably-enqueued distinct status observation 為 `0`，之後每一筆新的 durable observation 必須恰好加 `1`。
   - retry/replay 既有 observation 不分配新 sequence，必須重用完全相同的 request body、sequence 與 `Idempotency-Key`。
@@ -55,7 +57,18 @@ Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi
   - Contract 不要求 status 透過 HTTP 抵達 Server 時連續或依 allocation order；Server 對 stale、duplicate 與 transition 的 runtime 處理由 Server implementation 負責。
 - `GET /devices/{deviceId}/history`：newest-first，`limit` 1–200。
 
-Server 的 `jobId` 必須原樣傳至 Agent 與 Updater。
+### 4.1 Explicit command identity
+
+新版 command endpoint 的每個 `200` response 必須有 explicit `commandType`。不得從 `targetVersion`、package field 是否存在或特殊版本值推斷 command type；缺漏或未知 discriminator 必須 fail closed。
+
+- Update command：`jobId=U`，要求 `deviceId`、`targetVersion`、`packageUrl`、`packageSha256`、`platform`、`createdAtUtc`、`expiresAtUtc`；不得有 `originalUpdateJobId`。`U` 原樣成為 Updater update identity。
+- Rollback command：獨立 `jobId=R`，要求 `deviceId`、`originalUpdateJobId=U`、`createdAtUtc`、`expiresAtUtc`；不得有 `targetVersion`、`packageUrl`、`packageSha256` 或 `platform`。`R` 是 Server/Agent orchestration 與 status scope，`U` 是 Updater rollback identity。
+
+同一 `U` 最多建立一個 logical rollback command `R`；管理端、delivery 或 restart retry 必須重用同一 `R` 與 `U`。完整 mapping、recovery 與 rollout 見 [Explicit rollback orchestration](explicit-rollback-orchestration.md)。
+
+Server 只有在裝置最近一次成功 registration 的 capability 完整快照包含 exact `explicit-rollback-v1` token 時，才能建立 `R` 或由 `/command` 交付 rollback。每次成功 registration 必須取代、不得 merge 先前 capability；`agentVersion`、runtime `contractVersion=2.0`、呼叫 `/command` 或 feature flag 均不能取代此 device-level gate。未知 capability 不代表支援 rollback。若新 registration 移除 token，pending `R` 必須停止交付並等待相容 registration 或正常到期，且不得改從 `/update` 交付。
+
+Server 不得在 `expiresAtUtc` 當下或之後交付 command。Agent 在第一次呼叫 Updater 前也必須檢查期限；尚未 submit 即過期的 command 不得造成 mutation，並以 terminal `failed`／`COMMAND_EXPIRED` 回報。若 submit 可能已發生（包含 response loss），期限不會取消 operation；Agent 仍使用持久化的同一 `R`、`U` 查詢或 exact-replay，直到 terminal。
 
 ## 5. Updater API
 
@@ -64,7 +77,7 @@ Base URL：`http://<jetson-host>:5000/api/v1`。Machine definitions 以 `openapi
 - `GET /status`：無 active job 時為 `idle` 且 `activeJobId: null`。
 - `POST /update`：`Idempotency-Key: <server-jobId>`；首次接受 `202`，相同 request 可回 `200/202` 且為同一 job。
 - `GET /update/{jobId}`：回 public transaction state；SlamCoreWeb startup 的內部 build progress 不得映射成 `building`。
-- `POST /rollback`：只接受仍有可用 previous release 的 job，idempotency key 為 `rollback:<jobId>`。
+- `POST /rollback`：body `jobId=U` 必須是 original successful update identity；只接受 `U` 仍有 retained previous release 的情況，idempotency key 固定為 `rollback:U`。Updater response 與 `GET /update/U` 的 `jobId` 仍為 `U`，不接收 Server rollback command identity `R`。
 
 所有 runtime DTO 的 `contractVersion` 為 `2.0`。
 
@@ -83,7 +96,7 @@ Base URL：`http://<jetson-host>:5000/api/v1`。Machine definitions 以 `openapi
 | `health_checking` | 86–99 | 等待新 runtime 達成 externally observable health |
 | `completed` | 100 | 新 active release 已健康 |
 | `rolling_back` | 保留 | 恢復 previous link/marker 並重啟/驗證舊 runtime |
-| `rolled_back` | 100 | previous runtime 恢復健康；原 update 失敗 |
+| `rolled_back` | 100 | previous runtime 恢復健康；對 update `U` 表示自動 rollback 後的 update failure，對 explicit rollback `R` 表示 rollback success |
 | `failed` | 保留 | activation 前失敗、不需 rollback，或 rollback 無法恢復健康 |
 
 正常 transition：
@@ -95,8 +108,10 @@ Base URL：`http://<jetson-host>:5000/api/v1`。Machine definitions 以 `openapi
 - `checking`、`downloading`、`verifying`、`backing_up` 在 active link 尚未 mutation 時可到 `failed`。
 - 自 active link mutation 起，`installing`、`restarting` 或 `health_checking` 的 failure/timeout 必須到 `rolling_back`。
 - `rolling_back → rolled_back`（previous runtime 健康）或 `rolling_back → failed`。
+- Explicit rollback 沿用 `queued → rolling_back → rolled_back|failed` subset；允許未觀察到瞬時 `queued`。
 - `completed`、`rolled_back`、`failed` 是 terminal；同一 Updater 同時最多一個 active job。
 - Updater 僅依 managed runtime health 判定，不須辨識 colcon、ROS package 或其他 startup failure cause。
+- Server terminal projection 必須依 command type：explicit rollback `R` 的 `rolled_back` 是成功，update `U` 的 `rolled_back` 維持失敗但已安全恢復的語意。
 
 ## 7. Timeout 與 recovery
 
@@ -117,7 +132,7 @@ Updater journal 必須在 destructive/externally visible steps 前後 durable ch
 3. marker commit 後 crash：marker 是 committed active release；recovery 從 managed runtime restart/health verification 繼續。若無法健康則 rollback link **及 marker**。
 4. 所有 recovery/rollback 均不得修改 `.slamcore_build_manifest.json` 或 unrelated workspace state。
 
-Agent restart 從本地 persistent job 恢復並先查 Updater；不得建立新 job。Server 離線時 terminal result 必須保存後補送。
+Agent restart 從本地 persistent job 恢復並先查 Updater；不得建立新 job。Explicit rollback recovery 保留 `R` 與 `U`，查詢 `GET /update/U`，必要時以完全相同的 `rollback:U` request replay。Agent 對 Updater 驗證 `U`，但對 Server 以 `status:R:<sequence>` 保存與補送 rollback observation。Server 離線時 terminal result 必須保存後補送。
 
 ## 8. Contract 2.0 release package format
 
@@ -164,6 +179,13 @@ Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解�
 10. 任意未知未來 `.slamcore_build_manifest.json` schema/content 不會造成 Updater rejection。
 11. unrelated workspace-level files/directories 在 deployment、cleanup 與 rollback 前後保持不變。
 12. idempotent retry、Agent restart recovery、Server offline result replay 維持正確。
+13. Update command 在新版 `/command` endpoint 具 `commandType=update`，且既有 `/update` endpoint 保持合法、update-only。
+14. Explicit rollback command 以獨立 `R` 引用 successful update `U`；Agent 在任何 mutation 前 durable 保存兩者，Updater request 使用 `jobId=U` 與 `rollback:U`。
+15. Rollback command 缺少 `originalUpdateJobId`、含 package/target fields 或使用未知 `commandType` 必須在 Updater mutation 前拒絕。
+16. Agent restart、Server retry、Updater restart 與 accepted-response loss 均不會改變 `R` 或 `U`，也不會建立第二個 physical rollback。
+17. Explicit rollback terminal `rolled_back` 對 Server command `R` 映射為成功，device version 使用 Updater 回報、由 `U` journal 推導的 previous release。
+18. 首次 Updater submission 前過期的 `R` 不會造成 mutation；已 submit 或 response-loss 中的 `R` 即使跨過 expiry，仍以同一 `R`、`U` 恢復到 terminal。
+19. 缺少 `explicit-rollback-v1` capability 的裝置無法建立或接收 rollback；registration capability removal 立即關閉 delivery，且舊 `/update` 永遠不成為 fallback。
 
 ## 10. 1.x → 2.0 migration
 
@@ -174,6 +196,15 @@ Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解�
 5. SlamCoreWeb startup 讀 active marker並自行 reconcile `.slamcore_build_manifest.json`；其 internal schema 可獨立演進。
 6. 1.x in-flight jobs 必須在升級前完成/終止；2.0 不接受或恢復含 `building` 的 1.x public journal 為 2.0 job。
 
-## 11. 後續範圍
+## 11. 2.0.1 → 2.1.0 explicit rollback rollout
+
+1. 既有 `/devices/{deviceId}/update` 保持 update-only；舊 Agent 可繼續正常 update，不會收到 rollback。
+2. Server 先加入 registration capability snapshot、discriminated command persistence 與 `/devices/{deviceId}/command`；沒有 exact capability 時禁止建立和交付 rollback。
+3. Agent 升級後只從 `/command` 接收新 command，依 discriminator 分支並 fail closed；SQLite 必須 durable 保存 `R` 與 `U`，完整路徑 ready 後才宣告 `explicit-rollback-v1`。
+4. 確認裝置最近成功 registration 已包含 capability；若後續 registration 移除，Server 必須停止交付 pending rollback。
+5. Updater wire API 無需改變；Agent 依既有 `POST /rollback` schema 映射 `R → U`。
+6. 所有 consumer pin reviewed `2.1.0` commit 且 capability gate 成立後，才可啟用 Server explicit rollback product path 與 Jetson HIL。
+
+## 12. 後續範圍
 
 Authentication、HTTPS、certificate、package signature、rollout waves、pause/cancel、message queue 仍不在 2.0。產品實作只能在本 contract 合併後各自升級；本 repository 不包含任何 runtime implementation。

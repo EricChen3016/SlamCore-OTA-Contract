@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SlamCore Updater API
-  version: 2.0.1
+  version: 2.1.0
   description: Internal HTTP contract; package integrity is enforced with SHA-256.
 servers:
   - url: http://{jetsonHost}:5000/api/v1
@@ -30,7 +30,9 @@ paths:
           application/json:
             schema: {$ref: '../schemas/updater-api/update-request.schema.json'}
       responses:
+        '200': {$ref: '#/components/responses/Accepted'}
         '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
         '422': {$ref: '#/components/responses/Error'}
   /update/{jobId}:
@@ -51,20 +53,20 @@ paths:
       parameters:
         - $ref: '#/components/parameters/ContractVersion'
         - $ref: '#/components/parameters/CorrelationId'
-        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/RollbackIdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [contractVersion, jobId]
-              properties:
-                contractVersion: {const: '2.0'}
-                jobId: {$ref: '#/components/schemas/JobId'}
-              additionalProperties: true
+            schema: {$ref: '../schemas/updater-api/rollback-request.schema.json'}
+            examples:
+              explicitRollback:
+                summary: Roll back the retained previous release for original update U
+                externalValue: ../examples/rollback-request.json
       responses:
+        '200': {$ref: '#/components/responses/Accepted'}
         '202': {$ref: '#/components/responses/Accepted'}
+        '400': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
         '409': {$ref: '#/components/responses/Error'}
 components:
@@ -86,6 +88,17 @@ components:
       in: header
       required: true
       schema: {type: string, minLength: 1, maxLength: 200}
+    RollbackIdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Must be rollback:<originalUpdateJobId>, where the suffix equals body.jobId U.
+      schema:
+        type: string
+        minLength: 10
+        maxLength: 137
+        pattern: '^rollback:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'
+      example: rollback:update-01J5QZ9WZ7H1
     JobId:
       name: jobId
       in: path

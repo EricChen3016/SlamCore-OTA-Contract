@@ -1,0 +1,11 @@
+{
+  "contractVersion": "2.0",
+  "commandType": "update",
+  "deviceId": "device-01J5QZ9WZ7H1",
+  "jobId": "update-01J5QZ9WZ7H1",
+  "targetVersion": "1.0.6",
+  "packageSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "platform": "jetson-orin",
+  "createdAtUtc": "2026-09-06T01:00:00Z",
+  "expiresAtUtc": "2026-09-06T02:00:00Z"
+}

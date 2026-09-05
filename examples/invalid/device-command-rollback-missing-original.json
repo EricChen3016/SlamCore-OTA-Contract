@@ -1,0 +1,8 @@
+{
+  "contractVersion": "2.0",
+  "commandType": "rollback",
+  "deviceId": "device-01J5QZ9WZ7H1",
+  "jobId": "rollback-01J5R03M8A21",
+  "createdAtUtc": "2026-09-06T03:00:00Z",
+  "expiresAtUtc": "2026-09-06T04:00:00Z"
+}
