@@ -1,0 +1,12 @@
+{
+  "contractVersion": "2.0",
+  "commandType": "rollback",
+  "deviceId": "device-01J5QZ9WZ7H1",
+  "jobId": "rollback-01J5R03M8A21",
+  "originalUpdateJobId": "update-01J5QZ9WZ7H1",
+  "targetVersion": "1.0.5",
+  "packageUrl": "http://server.example/releases/SlamCoreWeb.1.0.5.zip",
+  "packageSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+  "createdAtUtc": "2026-09-06T03:00:00Z",
+  "expiresAtUtc": "2026-09-06T04:00:00Z"
+}

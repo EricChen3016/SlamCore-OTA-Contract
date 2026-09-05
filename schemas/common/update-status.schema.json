@@ -7,7 +7,10 @@
   "properties": {
     "contractVersion": {"const": "2.0"},
     "jobId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"},
-    "state": {"enum": ["queued", "checking", "downloading", "verifying", "backing_up", "installing", "restarting", "health_checking", "completed", "failed", "rolling_back", "rolled_back"]},
+    "state": {
+      "description": "Updater operation state. rolled_back is successful completion for an explicit rollback command R, but failed-update recovery for an update command U; Server projects the terminal result using commandType.",
+      "enum": ["queued", "checking", "downloading", "verifying", "backing_up", "installing", "restarting", "health_checking", "completed", "failed", "rolling_back", "rolled_back"]
+    },
     "progressPercent": {"type": "integer", "minimum": 0, "maximum": 100},
     "message": {"type": "string", "maxLength": 1024},
     "fromVersion": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"},

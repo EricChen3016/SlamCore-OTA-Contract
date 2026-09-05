@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/server-api/device-command.schema.json",
+  "title": "DeviceCommand",
+  "description": "A Server-owned, explicitly discriminated command delivered to one Agent. The command jobId is the durable Server/Agent identity; rollback additionally references the original successful update identity used by Updater.",
+  "oneOf": [
+    {"$ref": "#/$defs/updateCommand"},
+    {"$ref": "#/$defs/rollbackCommand"}
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
+    "baseCommand": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "commandType",
+        "deviceId",
+        "jobId",
+        "createdAtUtc",
+        "expiresAtUtc"
+      ],
+      "properties": {
+        "contractVersion": {"const": "2.0"},
+        "commandType": {"enum": ["update", "rollback"]},
+        "deviceId": {"$ref": "#/$defs/identifier"},
+        "jobId": {"$ref": "#/$defs/identifier"},
+        "createdAtUtc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "expiresAtUtc": {"type": "string", "format": "date-time", "pattern": "Z$"}
+      },
+      "additionalProperties": true
+    },
+    "updateCommand": {
+      "allOf": [
+        {"$ref": "#/$defs/baseCommand"},
+        {
+          "type": "object",
+          "required": ["targetVersion", "packageUrl", "packageSha256", "platform"],
+          "properties": {
+            "commandType": {"const": "update"},
+            "targetVersion": {"$ref": "#/$defs/semver"},
+            "packageUrl": {"type": "string", "format": "uri", "pattern": "^https?://"},
+            "packageSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            "platform": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+            "originalUpdateJobId": false
+          }
+        }
+      ]
+    },
+    "rollbackCommand": {
+      "allOf": [
+        {"$ref": "#/$defs/baseCommand"},
+        {
+          "type": "object",
+          "required": ["originalUpdateJobId"],
+          "properties": {
+            "commandType": {"const": "rollback"},
+            "originalUpdateJobId": {"$ref": "#/$defs/identifier"},
+            "targetVersion": false,
+            "packageUrl": false,
+            "packageSha256": false,
+            "platform": false
+          }
+        }
+      ]
+    }
+  }
+}

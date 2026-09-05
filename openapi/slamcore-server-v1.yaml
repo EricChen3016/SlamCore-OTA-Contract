@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: {title: SlamCore Server Agent API, version: 2.0.1}
+info: {title: SlamCore Server Agent API, version: 2.1.0}
 servers:
   - url: http://{serverHost}:5000/api/v1
     variables:
@@ -21,10 +21,32 @@ paths:
   /devices/{deviceId}/update:
     get:
       operationId: getDeviceUpdate
+      description: Legacy-compatible update-only polling endpoint. It never returns rollback commands; upgraded Agents use /devices/{deviceId}/command.
       parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}]
       responses:
         '200': {description: Pending update, content: {application/json: {schema: {$ref: '#/components/schemas/UpdateCommand'}}}}
         '204': {description: No pending update}
+        '404': {$ref: '#/components/responses/Error'}
+  /devices/{deviceId}/command:
+    get:
+      operationId: getDeviceCommand
+      description: Returns one Server-owned command with an explicit update or rollback discriminator. Unknown commandType values must fail closed and must never be interpreted as update.
+      parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}]
+      responses:
+        '200':
+          description: Pending explicitly discriminated device command
+          content:
+            application/json:
+              schema: {$ref: '../schemas/server-api/device-command.schema.json'}
+              examples:
+                update:
+                  summary: Package-backed update command
+                  externalValue: ../examples/device-command-update.json
+                rollback:
+                  summary: Explicit rollback command referencing an original successful update
+                  externalValue: ../examples/device-command-rollback.json
+        '204': {description: No pending command}
+        '400': {$ref: '#/components/responses/Error'}
         '404': {$ref: '#/components/responses/Error'}
   /devices/{deviceId}/status:
     post:

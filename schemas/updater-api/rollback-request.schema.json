@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/updater-api/rollback-request.schema.json",
+  "title": "RollbackRequest",
+  "description": "Requests rollback of the retained previous release recorded by the original successful update. jobId is the original update identity U, not the Server rollback-command identity R.",
+  "type": "object",
+  "required": ["contractVersion", "jobId"],
+  "properties": {
+    "contractVersion": {"const": "2.0"},
+    "jobId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"}
+  },
+  "additionalProperties": true
+}

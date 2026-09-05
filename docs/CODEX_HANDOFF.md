@@ -2,9 +2,10 @@
 
 ## Current baseline
 
-- Repository version is `2.0.1`; runtime contract version is `2.0`.
+- Repository version is `2.1.0`; runtime contract version remains `2.0`.
 - Contract 2.0 is a breaking correction of the Updater/SlamCoreWeb ownership boundary.
 - The package metadata is strict JSON at `SlamCoreWeb/.slamcore-package.json`; workspace `.slamcore_release` is only a one-line SemVer active marker.
+- Explicit rollback orchestration uses the additive `/devices/{deviceId}/command` endpoint, mandatory `commandType`, independent Server/Agent rollback identity `R`, and original Updater update identity `U`.
 - Validate with `python -m pip install -r requirements-dev.txt` and `python scripts/validate-contracts.py`.
 
 ## Decided ownership
@@ -15,22 +16,21 @@
 
 ## Consumer migration status
 
-- SlamCore-Updater is still pinned to contract commit `2d76fe891b3f7b2ddc266ca04e268397294832b5` (Contract 1.x) and must migrate first.
-- SlamCore-Agent and SlamCore-Server must then adopt runtime `2.0` DTO/state enums together; mixed 1.x/2.0 job processing is unsupported.
-- SlamCoreWeb release production must emit `.slamcore-package.json`; startup must reconcile stale internal build state from the active release marker.
-- No product repository is modified by this contract change.
+- SlamCore-Server, SlamCore-Agent, and SlamCore-Updater main all pin Contract commit `ae3f183aaf4e864fb02ac10c7f4cb8b723ebcd84` (`2.0.1`) and implement the runtime `2.0` update path.
+- SlamCore-Updater already implements the authoritative rollback wire identity: request body `jobId=U`, key `rollback:U`, retained target derived from update journal `U`, and status at `GET /update/U`.
+- SlamCore-Server has no discriminated command persistence or rollback creation path yet.
+- SlamCore-Agent has an unused `RollbackAsync` HTTP client method, but its command model and coordinator remain update-only.
+- No product repository is modified by this Contract branch.
 
-## Required Updater work
+## Required explicit rollback consumer work
 
-1. Upgrade the pinned contract commit and reject Contract 1.x requests as incompatible rather than reinterpret them.
-2. Remove `building`, build-manifest parsing/validation/mutation, ROS package detection, Build Manager invocation, and the standalone 45-minute Build timeout.
-3. Verify artifact SHA-256 before extraction, then validate safe archive shape and strict `.slamcore-package.json` before active-link mutation.
-4. Preserve `.slamcore_build_manifest.json` and all unrelated workspace-level state during install, cleanup, recovery, and rollback; accept all future internal manifest contents.
-5. Treat workspace `.slamcore_release` as atomic one-line SemVer active marker only, never package metadata; rollback marker and link as a pair.
-6. Use the public path `installing → restarting → health_checking`, allowing 60 minutes for runtime startup plus health convergence.
-7. Persist journal checkpoints around link/marker mutation and test crashes before link mutation, after link mutation before checkpoint, and after marker commit.
-8. Roll back on generic managed-runtime health failure without interpreting colcon/ROS causes; verify the previous runtime becomes healthy.
-9. Add all Contract 2.0 acceptance cases from Integration Spec section 9 as contract/integration tests.
+1. Server persists explicit command type and `originalUpdateJobId`, creates one rollback identity `R` per successful update `U`, and exposes the new `/command` endpoint while preserving `/update` as update-only.
+2. Agent validates the discriminator, durably persists `R` and `U` before mutation, dispatches rollback using `U`, and reports status to Server under `R`.
+3. Server maps rollback `rolled_back` to successful completion for `R`; update `rolled_back` retains its existing automatic-rollback failure meaning for `U`.
+4. Server and Agent add idempotency, restart, response-loss, pre-submission expiry, post-submission expiry recovery, conflicting-payload, unknown-command, and terminal projection tests.
+5. Updater requires no product logic change; update its Contract gitlink and rerun conformance after this Contract release is reviewed.
+
+See [`explicit-rollback-orchestration.md`](explicit-rollback-orchestration.md) for the authoritative mapping and failure table.
 
 ## Deferred scope
 
