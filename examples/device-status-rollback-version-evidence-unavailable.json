@@ -1,0 +1,12 @@
+{
+  "contractVersion": "2.0",
+  "state": "failed",
+  "progressPercent": 0,
+  "message": "Original Updater journal is unavailable.",
+  "errorCode": "RESOURCE_NOT_FOUND",
+  "fromVersion": null,
+  "targetVersion": null,
+  "versionEvidence": "unavailable",
+  "observedAtUtc": "2026-09-06T03:00:00Z",
+  "sequence": 0
+}

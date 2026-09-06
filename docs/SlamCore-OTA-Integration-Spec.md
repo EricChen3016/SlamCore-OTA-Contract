@@ -1,7 +1,7 @@
 # SlamCore OTA Integration Specification v2
 
 > 文件狀態：Draft for implementation
-> Repository version：`2.1.0`
+> Repository version：`2.1.1`
 > Runtime contract version：`2.0`
 > 適用專案：`SlamCore-Server`、`SlamCore-Agent`、`SlamCore-Updater`
 
@@ -14,7 +14,7 @@
 - JSON 欄位採 camelCase；時間為 UTC ISO 8601；版本為不含 `v` 的 SemVer；ID 是不透明字串。
 - DTO 接收端容忍未知欄位，以利 2.x minor additions；strict release metadata 不容忍未知欄位。
 - Contract 1.x 與 2.0 不相容。2.0 移除 `building` public state、改變 package metadata，並移除 Updater 的 ROS build ownership。
-- Repository `2.1.0` 在 runtime `2.0` 內新增獨立、可選用的 discriminated command endpoint；既有 update-only endpoint 與 Updater wire contract 不變。
+- Repository `2.1.0` 在 runtime `2.0` 內新增獨立、可選用的 discriminated command endpoint；`2.1.1` 修正 explicit rollback 永久失敗但 Updater 無權威版本證據時無法合法回報的 edge case。既有 update-only endpoint、正常 status payload 與 Updater wire contract 不變。
 
 ## 2. 系統責任邊界
 
@@ -55,6 +55,8 @@ Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi
   - retry/replay 既有 observation 不分配新 sequence，必須重用完全相同的 request body、sequence 與 `Idempotency-Key`。
   - request body 的 `sequence` 必須是非負整數，且 idempotency key 的 sequence suffix 必須與 body 值相同。
   - Contract 不要求 status 透過 HTTP 抵達 Server 時連續或依 allocation order；Server 對 stale、duplicate 與 transition 的 runtime 處理由 Server implementation 負責。
+  - 正常 status 的 `fromVersion` 與 `targetVersion` 都是 string，且不帶 `versionEvidence`。只有 Server-owned explicit rollback `R` 已永久 `failed`、同時無法取得可信 Updater version relationship 時，兩欄才可同時為 `null`，並要求 non-null `errorCode` 與 `versionEvidence=unavailable`。任一單側 null、非 `failed` state 或其他 evidence 值均不合法。
+  - JSON Schema 無法知道 status 所屬 job type；Server 收到 `versionEvidence=unavailable` 時必須確認 idempotency key 引用 explicit rollback `R`，否則回 `400 VALIDATION_FAILED`。此 status 只 terminalize `R`；Server **MUST NOT** update `Device.currentReleaseVersion`，也不得修改 original `U`。若需呈現 rollback failure relationship，必須使用既有 `R.originalUpdateJobId=U` 關聯；`unavailable` 不表示 rollback 成功。
 - `GET /devices/{deviceId}/history`：newest-first，`limit` 1–200。
 
 ### 4.1 Explicit command identity
@@ -134,6 +136,8 @@ Updater journal 必須在 destructive/externally visible steps 前後 durable ch
 
 Agent restart 從本地 persistent job 恢復並先查 Updater；不得建立新 job。Explicit rollback recovery 保留 `R` 與 `U`，查詢 `GET /update/U`，必要時以完全相同的 `rollback:U` request replay。Agent 對 Updater 驗證 `U`，但對 Server 以 `status:R:<sequence>` 保存與補送 rollback observation。Server 離線時 terminal result 必須保存後補送。
 
+Explicit rollback 的 `GET /update/U → 404` 本身不證明 rollback 未被接受；若 mutation acceptance 仍可能未知（timeout、connection reset、response loss、`503` 或暫時 unavailable），`R` 保持 Unknown，Agent 必須 exact replay。只有 Updater mutation/replay 明確回 permanent rejection，且 journal 無法提供權威 version pair 時，Agent 才以 `failed`、兩個 null version 與 `versionEvidence=unavailable` terminalize `R`。不得從 package name、Server command target、device current version、local historical `U` row 或其他 heuristic 猜測版本。
+
 ## 8. Contract 2.0 release package format
 
 Archive 名稱為 `SlamCoreWeb.<semver>.zip`，解開後只有一個 `SlamCoreWeb/` product root。必須包含：
@@ -186,6 +190,10 @@ Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解�
 17. Explicit rollback terminal `rolled_back` 對 Server command `R` 映射為成功，device version 使用 Updater 回報、由 `U` journal 推導的 previous release。
 18. 首次 Updater submission 前過期的 `R` 不會造成 mutation；已 submit 或 response-loss 中的 `R` 即使跨過 expiry，仍以同一 `R`、`U` 恢復到 terminal。
 19. 缺少 `explicit-rollback-v1` capability 的裝置無法建立或接收 rollback；registration capability removal 立即關閉 delivery，且舊 `/update` 永遠不成為 fallback。
+20. `U` journal 遺失或 retained previous release 不存在時，Agent 在收到明確 permanent rejection 後可用 `failed`、non-null `errorCode`、兩個 null version 與 `versionEvidence=unavailable` terminalize `R`；Server 保留 device version 與 original `U`。
+21. `completed`、`rolled_back`、`rolling_back`、任一單側 null、缺少/未知 `versionEvidence` 或 null `errorCode` 的 missing-evidence payload 都會被拒絕。
+22. `GET /update/U → 404` 或 transport uncertainty 單獨不會 terminalize `R`；accepted-response loss 仍以同一 `R`、`U` 與 `rollback:U` query/exact-replay。
+23. 從未 submit 即過期的 `R` 不呼叫 Updater；若沒有可信 version evidence，可以 `COMMAND_EXPIRED` 與 unavailable-evidence variant terminalize，且不改 device version。
 
 ## 10. 1.x → 2.0 migration
 
@@ -204,6 +212,16 @@ Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解�
 4. 確認裝置最近成功 registration 已包含 capability；若後續 registration 移除，Server 必須停止交付 pending rollback。
 5. Updater wire API 無需改變；Agent 依既有 `POST /rollback` schema 映射 `R → U`。
 6. 所有 consumer pin reviewed `2.1.0` commit 且 capability gate 成立後，才可啟用 Server explicit rollback product path 與 Jetson HIL。
+
+### 11.1 2.1.0 → 2.1.1 missing-version-evidence fix
+
+這是 `2.1.0` explicit rollback 不可滿足 edge case 的 patch 修復；runtime `contractVersion` 保持 `2.0`。新 accepted payload 對 consumer rollout 有順序要求：
+
+1. 先合併並審查 Contract `2.1.1`。
+2. Server 升級 status DTO/converter/schema validation，實作 `R`-only contextual validation 與 preserve-device-version projection。
+3. Server 已能接受後，Agent 才可對明確 permanent rollback rejection 或 evidence-free `COMMAND_EXPIRED` 發送 `versionEvidence=unavailable`。
+4. 舊 Server 尚未升級時，Agent 不得發送此 variant；舊 Agent 的正常 string-version payload 繼續合法。
+5. Updater 與 SlamCoreWeb 不需修改。
 
 ## 12. 後續範圍
 

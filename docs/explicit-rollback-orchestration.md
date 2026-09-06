@@ -132,6 +132,61 @@ The rollback status `fromVersion` is the release active before rollback
 previous release selected by Updater. Server validates that relationship against
 the immutable original update evidence.
 
+### Terminal failure without authoritative version evidence
+
+Contract `2.1.0` required a permanent failure such as a missing original `U` or
+missing retained release to terminalize `R`, while the Agent-to-Server status
+schema required both version fields to be strings. When Updater has lost the
+entire `U` journal, it cannot provide an authoritative version relationship.
+Consequently, no Contract-valid terminal status existed without fabricating
+versions. Fabrication is prohibited: Agent must not infer either version from a
+package name, Server command target, `Device.currentReleaseVersion`, local
+historical `U` row, or any other heuristic. Updater remains the rollback-target
+authority.
+
+Normal status payloads are unchanged: `fromVersion` and `targetVersion` are both
+strings and `versionEvidence` is absent. The only missing-evidence representation
+is this mutually exclusive variant:
+
+```json
+{
+  "contractVersion": "2.0",
+  "state": "failed",
+  "progressPercent": 0,
+  "message": "Original Updater journal is unavailable.",
+  "errorCode": "RESOURCE_NOT_FOUND",
+  "fromVersion": null,
+  "targetVersion": null,
+  "versionEvidence": "unavailable",
+  "observedAtUtc": "2026-09-06T03:00:00Z",
+  "sequence": 0
+}
+```
+
+Both version fields remain required and must be null together. Null is legal
+only when `state=failed`, `errorCode` is a non-null valid code, and
+`versionEvidence=unavailable`. It is invalid for `completed`, `rolled_back`,
+`rolling_back`, either one-sided-null form, or any update success/failure with
+missing evidence.
+
+JSON Schema cannot determine whether the status key references update `U` or
+explicit rollback `R`. Server therefore MUST apply a contextual invariant: when
+`versionEvidence=unavailable`, the job referenced by
+`status:<jobId>:<sequence>` MUST be an explicit rollback `R` and the state MUST
+be `failed`; otherwise Server returns `400 VALIDATION_FAILED`. This status and
+its idempotency identity remain scoped to `R`; it MUST NOT terminalize or mutate
+the original `U`. Any presentation or audit relationship to that successful
+update MUST use the existing `R.originalUpdateJobId=U` association rather than
+overwriting `U` or reusing its identity as the status scope.
+
+`versionEvidence=unavailable` means only that rollback failed permanently and
+the authoritative version pair cannot be reported. It does **not** mean rollback
+succeeded. Server terminalizes `R` as failed and MUST preserve its existing
+device current-version projection because there is no evidence that the runtime
+switched versions. Specifically, Server MUST NOT update
+`Device.currentReleaseVersion`; it MUST NOT assume that either the previous or
+attempted version is active or that rollback succeeded.
+
 ## Failure semantics
 
 | Condition | Contract result | Retryable | Terminal for R |
@@ -159,11 +214,50 @@ Terminal failure does not authorize a second rollback command for the same `U`:
 remediate the failed operation explicitly; transport retry logic never allocates
 a new `R`.
 
+The unavailable-evidence variant is eligible only when Agent has a definitive
+permanent outcome but no authoritative Updater version pair. Examples include:
+
+- `GET /update/U` returns `404`, then an exact `POST /rollback` or replay returns
+  permanent `404 RESOURCE_NOT_FOUND` because the original journal is absent;
+- Updater permanently rejects rollback with `RESOURCE_NOT_FOUND` because the
+  retained previous release is unavailable and no queryable journal supplies
+  the version relationship; or
+- another Contract-defined permanent rollback rejection is received while the
+  authoritative journal relationship is unavailable.
+
+A `404` query by itself is never sufficient to terminalize `R` after submission
+may have occurred. Timeout, connection reset, lost response, `503`, and temporary
+Updater unavailability leave mutation acceptance uncertain; `R` stays Unknown
+and Agent must query or exact-replay the same `rollback:U` operation. If a
+rollback acceptance response is lost, later `GET /update/U` observations of
+`rolling_back` or `rolled_back` continue the existing recovery path. The new
+variant does not change response-loss semantics.
+
+For a never-submitted `R` that has expired, Agent performs no Updater mutation
+and reports terminal `failed` with `COMMAND_EXPIRED`. It uses the normal string
+pair if trustworthy evidence is already available; otherwise it may use
+`versionEvidence=unavailable` with both version fields null. Server still
+preserves the device version projection and original `U`.
+
 ## Compatibility and rollout
 
 This is an additive Contract 2.0 extension, so repository SemVer advances from
 `2.0.1` to `2.1.0` while wire `contractVersion` stays `2.0`. No existing field,
 endpoint, update state, or Updater request changes meaning.
+
+Repository `2.1.1` is a patch correction to the `2.1.0` explicit-rollback
+feature: it adds the accepted missing-evidence failure variant without changing
+normal status payloads or runtime `contractVersion=2.0`. Because an old Server
+does not accept this variant, rollout is coordinated in this order:
+
+1. Merge and review Contract `2.1.1`.
+2. Upgrade Server to accept the structural variant, enforce the `R`-only
+   contextual rule, and preserve the device version projection.
+3. Only then upgrade/enable Agent emission of the variant.
+
+Until Server is upgraded, Agent MUST NOT emit `versionEvidence=unavailable`.
+Old Agents remain compatible because normal string-version status is unchanged.
+Updater wire behavior and product code do not change.
 
 ### Capability gate
 
@@ -207,6 +301,23 @@ package fields must fail validation before persistence or Updater mutation.
 Unknown `commandType` values always fail closed.
 
 ## Consumer impact
+
+For the `2.1.1` missing-evidence correction specifically:
+
+- **SlamCore-Server:** update `ContractDeviceStatusRequest`, its JSON converter,
+  schema/status validation, rollback-context validation, and device-version
+  projection. Add tests proving `R failed + unavailable` is accepted and
+  terminal while the device version and original `U` remain unchanged, and that
+  the same payload for `U` is `400 VALIDATION_FAILED`. Update the Contract
+  gitlink after review.
+- **SlamCore-Agent:** allow nullable versions only in the special status model
+  variant, serialize `versionEvidence=unavailable`, map definitive permanent
+  rollback rejection—including the journal-missing case—and evidence-free
+  `COMMAND_EXPIRED`, and add schema, persistence/outbox exact-replay, and mapping
+  tests. Do not emit before Server is upgraded. Update the Contract gitlink
+  after review.
+- **SlamCore-Updater:** no product change and no wire-contract change.
+- **SlamCoreWeb:** no change.
 
 ### SlamCore-Server
 

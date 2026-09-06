@@ -1,0 +1,11 @@
+{
+  "contractVersion": "2.0",
+  "state": "failed",
+  "progressPercent": 50,
+  "message": "Rollback health convergence timed out.",
+  "errorCode": "OPERATION_TIMEOUT",
+  "fromVersion": "1.0.1",
+  "targetVersion": "1.0.0",
+  "observedAtUtc": "2026-09-06T02:59:00Z",
+  "sequence": 3
+}

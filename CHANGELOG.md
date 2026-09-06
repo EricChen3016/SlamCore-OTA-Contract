@@ -4,6 +4,15 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-09-06
+
+### Fixed
+
+- Define a strict `versionEvidence=unavailable` Agent-to-Server status variant so an explicit rollback `R` can terminally fail after a definitive permanent rejection when authoritative Updater `fromVersion`/`targetVersion` evidence is unavailable, without fabricating versions.
+- Require `failed`, a non-null `errorCode`, and a paired null version relationship for that variant; reject success, active rollback, one-sided null, missing/unknown discriminator, and null-error cases.
+- Require Server contextual validation that the referenced job is rollback `R`, preserve the device current-version projection and original update `U`, and retain exact-replay behavior whenever mutation acceptance is uncertain.
+- Document the coordinated Server-before-Agent rollout for the additive accepted payload while keeping normal status payloads, Updater behavior, and runtime `contractVersion=2.0` unchanged.
+
 ## [2.1.0] - 2026-09-06
 
 ### Added

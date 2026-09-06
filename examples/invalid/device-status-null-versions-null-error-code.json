@@ -1,0 +1,12 @@
+{
+  "contractVersion": "2.0",
+  "state": "failed",
+  "progressPercent": 0,
+  "message": "Invalid failure without an error code.",
+  "errorCode": null,
+  "fromVersion": null,
+  "targetVersion": null,
+  "versionEvidence": "unavailable",
+  "observedAtUtc": "2026-09-06T03:09:00Z",
+  "sequence": 0
+}

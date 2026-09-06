@@ -1,5 +1,5 @@
 openapi: 3.1.0
-info: {title: SlamCore Server Agent API, version: 2.1.0}
+info: {title: SlamCore Server Agent API, version: 2.1.1}
 servers:
   - url: http://{serverHost}:5000/api/v1
     variables:
@@ -67,6 +67,15 @@ paths:
         request body sequence. HTTP delivery may contain gaps or arrive out
         of allocation order; stale, duplicate, and transition handling is a
         Server runtime responsibility.
+
+        A payload with versionEvidence=unavailable is a narrowly scoped
+        terminal-failure representation: the referenced Server-owned job MUST
+        be an explicit rollback R, state MUST be failed, errorCode MUST be
+        non-null, and both version fields MUST be null. Server MUST reject that
+        variant with 400 VALIDATION_FAILED for an update U or any non-rollback
+        job. It terminalizes only R, MUST NOT update
+        Device.currentReleaseVersion or original U, and never indicates
+        rollback success. Any relationship remains R.originalUpdateJobId=U.
       parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/CorrelationId'}, {$ref: '#/components/parameters/StatusIdempotencyKey'}]
       requestBody:
         required: true
@@ -77,6 +86,15 @@ paths:
               initialStatus:
                 summary: First durable status observation for job-01J5QZ9WZ7H1
                 externalValue: ../examples/device-status.json
+              completedStatus:
+                summary: Normal completed status with authoritative string versions
+                externalValue: ../examples/device-status-completed.json
+              failedStatusWithVersionEvidence:
+                summary: Normal failed status with authoritative string versions
+                externalValue: ../examples/device-status-failed-with-version-evidence.json
+              rollbackFailureWithoutVersionEvidence:
+                summary: Explicit rollback R permanently failed without authoritative Updater version evidence
+                externalValue: ../examples/device-status-rollback-version-evidence-unavailable.json
       responses:
         '204': {description: Status stored idempotently}
         '400': {$ref: '#/components/responses/Error'}
