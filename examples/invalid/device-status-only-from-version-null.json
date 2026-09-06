@@ -1,0 +1,12 @@
+{
+  "contractVersion": "2.0",
+  "state": "failed",
+  "progressPercent": 0,
+  "message": "Invalid one-sided missing version evidence.",
+  "errorCode": "RESOURCE_NOT_FOUND",
+  "fromVersion": null,
+  "targetVersion": "1.0.5",
+  "versionEvidence": "unavailable",
+  "observedAtUtc": "2026-09-06T03:05:00Z",
+  "sequence": 0
+}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://slamcore.local/schemas/server-api/device-status.schema.json",
   "title": "DeviceStatus",
-  "description": "An Agent-to-Server observation for one Server-owned logical job. Sequence allocation is scoped per jobId and owned by the Agent. The first durably enqueued distinct observation uses sequence 0; each newly durably enqueued distinct observation increments it by exactly 1. A retry or replay reuses the exact request body, sequence, and Idempotency-Key. HTTP delivery need not arrive contiguously or in allocation order.",
+  "description": "An Agent-to-Server observation for one Server-owned logical job. Sequence allocation is scoped per jobId and owned by the Agent. The first durably enqueued distinct observation uses sequence 0; each newly durably enqueued distinct observation increments it by exactly 1. A retry or replay reuses the exact request body, sequence, and Idempotency-Key. HTTP delivery need not arrive contiguously or in allocation order. The versionEvidence=unavailable variant is valid only for terminal failure of an explicit rollback R; Server enforces that job context.",
   "type": "object",
   "required": ["contractVersion", "state", "progressPercent", "message", "errorCode", "fromVersion", "targetVersion", "observedAtUtc", "sequence"],
   "properties": {
@@ -14,7 +14,12 @@
     "progressPercent": {"type": "integer", "minimum": 0, "maximum": 100},
     "message": {"type": "string", "maxLength": 1024},
     "errorCode": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]*$"},
-    "fromVersion": {"type": "string"}, "targetVersion": {"type": "string"},
+    "fromVersion": {"type": ["string", "null"]},
+    "targetVersion": {"type": ["string", "null"]},
+    "versionEvidence": {
+      "const": "unavailable",
+      "description": "Present only when an explicit rollback R terminally fails and no authoritative Updater version relationship is available. It never indicates rollback success."
+    },
     "observedAtUtc": {"type": "string", "format": "date-time", "pattern": "Z$"},
     "sequence": {
       "type": "integer",
@@ -22,5 +27,26 @@
       "description": "Agent-allocated sequence scoped to the jobId in Idempotency-Key status:<jobId>:<sequence>. The suffix MUST equal this value. Allocation starts at 0 and increments by exactly 1 only for a newly durably enqueued distinct observation; replay reuses the existing value."
     }
   },
+  "oneOf": [
+    {
+      "title": "Status with authoritative version evidence",
+      "properties": {
+        "fromVersion": {"type": "string"},
+        "targetVersion": {"type": "string"}
+      },
+      "not": {"required": ["versionEvidence"]}
+    },
+    {
+      "title": "Explicit rollback terminal failure without version evidence",
+      "required": ["versionEvidence"],
+      "properties": {
+        "state": {"const": "failed"},
+        "errorCode": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+        "fromVersion": {"type": "null"},
+        "targetVersion": {"type": "null"},
+        "versionEvidence": {"const": "unavailable"}
+      }
+    }
+  ],
   "additionalProperties": true
 }

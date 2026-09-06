@@ -6,7 +6,7 @@ The authoritative, machine-verifiable cross-project contract for **SlamCore Serv
 
 Updater owns artifact download and SHA-256 verification, strict package metadata validation, safe staging, active link/marker activation, managed runtime restart and health verification, rollback, and crash recovery. It does **not** own ROS builds.
 
-Repository `2.1.0` adds explicit Server → Agent rollback orchestration without changing the runtime `2.0` Updater wire API. Upgraded Agents poll `GET /devices/{deviceId}/command`, require `commandType=update|rollback`, persist an independent rollback command identity, and map it to the original Updater update identity. They advertise `explicit-rollback-v1` during registration; Server gates both rollback creation and delivery on the device's latest successful capability snapshot. See [Explicit rollback orchestration](docs/explicit-rollback-orchestration.md).
+Repository `2.1.0` adds explicit Server → Agent rollback orchestration without changing the runtime `2.0` Updater wire API. Repository `2.1.1` adds the strict `versionEvidence=unavailable` terminal-failure variant for an explicit rollback whose authoritative Updater version relationship is unavailable; it never permits version guessing or changes the device version projection. Upgraded Agents poll `GET /devices/{deviceId}/command`, require `commandType=update|rollback`, persist an independent rollback command identity, and map it to the original Updater update identity. They advertise `explicit-rollback-v1` during registration; Server gates both rollback creation and delivery on the device's latest successful capability snapshot. See [Explicit rollback orchestration](docs/explicit-rollback-orchestration.md).
 
 `.slamcore_build_manifest.json` is workspace-level internal state owned exclusively by SlamCoreWeb Build Manager. OTA does not define its schema. Updater must never parse, validate, create, mutate, delete, migrate, checkpoint, or rollback it, and deployment must preserve unrelated workspace state.
 
@@ -22,7 +22,7 @@ A release archive uses `SlamCoreWeb/.slamcore-package.json` for strict package m
 
 ## Versions and compatibility
 
-Repository releases use SemVer (`2.1.0` in `VERSION`); runtime payloads and `X-SlamCore-Contract-Version` remain `2.0`. The `2.1.0` command endpoint is additive: the existing update-only endpoint remains available, while rollback is exposed only through the explicitly discriminated endpoint. Contract 2.0 itself is breaking from 1.x: 1.x consumers cannot send `building`, parse the former KEY=VALUE `.slamcore_release`, or require the former build manifest. See the [migration section](docs/SlamCore-OTA-Integration-Spec.md#10-1x--20-migration), [rollback rollout](docs/SlamCore-OTA-Integration-Spec.md#11-201--210-explicit-rollback-rollout), and [compatibility matrix](docs/compatibility-matrix.md).
+Repository releases use SemVer (`2.1.1` in `VERSION`); runtime payloads and `X-SlamCore-Contract-Version` remain `2.0`. The `2.1.0` command endpoint is additive, and `2.1.1` is its missing-version-evidence patch: the existing update-only endpoint and normal string-version status remain unchanged. Contract 2.0 itself is breaking from 1.x: 1.x consumers cannot send `building`, parse the former KEY=VALUE `.slamcore_release`, or require the former build manifest. See the [migration section](docs/SlamCore-OTA-Integration-Spec.md#10-1x--20-migration), [rollback rollout](docs/SlamCore-OTA-Integration-Spec.md#11-201--210-explicit-rollback-rollout), and [compatibility matrix](docs/compatibility-matrix.md).
 
 ## Validate locally
 
@@ -37,12 +37,12 @@ The validator checks every JSON document/schema, examples, OpenAPI references an
 
 ```bash
 git submodule add <contract-repository-url> contracts/slamcore-ota
-git -C contracts/slamcore-ota checkout contract-v2.1.0
+git -C contracts/slamcore-ota checkout contract-v2.1.1
 git add contracts/slamcore-ota
-git commit -m "chore: upgrade SlamCore OTA contract to 2.1.0"
+git commit -m "chore: upgrade SlamCore OTA contract to 2.1.1"
 ```
 
-Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. Enable rollback command creation only after the device's latest successful registration advertises `explicit-rollback-v1`. After merge and CI, a human—not a feature branch—may create `contract-v2.1.0`.
+Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. Enable rollback command creation only after the device's latest successful registration advertises `explicit-rollback-v1`. Upgrade Server to accept the `2.1.1` unavailable-evidence status before Agent emits it. After merge and CI, a human—not a feature branch—may create `contract-v2.1.1`.
 
 ## FAQ
 
