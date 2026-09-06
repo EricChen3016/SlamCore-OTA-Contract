@@ -175,14 +175,17 @@ explicit rollback `R`. Server therefore MUST apply a contextual invariant: when
 `status:<jobId>:<sequence>` MUST be an explicit rollback `R` and the state MUST
 be `failed`; otherwise Server returns `400 VALIDATION_FAILED`. This status and
 its idempotency identity remain scoped to `R`; it MUST NOT terminalize or mutate
-the original `U`.
+the original `U`. Any presentation or audit relationship to that successful
+update MUST use the existing `R.originalUpdateJobId=U` association rather than
+overwriting `U` or reusing its identity as the status scope.
 
 `versionEvidence=unavailable` means only that rollback failed permanently and
 the authoritative version pair cannot be reported. It does **not** mean rollback
 succeeded. Server terminalizes `R` as failed and MUST preserve its existing
 device current-version projection because there is no evidence that the runtime
-switched versions. It must not assume either the previous or attempted version
-is active.
+switched versions. Specifically, Server MUST NOT update
+`Device.currentReleaseVersion`; it MUST NOT assume that either the previous or
+attempted version is active or that rollback succeeded.
 
 ## Failure semantics
 
@@ -309,9 +312,10 @@ For the `2.1.1` missing-evidence correction specifically:
   gitlink after review.
 - **SlamCore-Agent:** allow nullable versions only in the special status model
   variant, serialize `versionEvidence=unavailable`, map definitive permanent
-  rollback rejection and evidence-free `COMMAND_EXPIRED`, and add schema,
-  persistence/outbox, replay, and mapping tests. Do not emit before Server is
-  upgraded. Update the Contract gitlink after review.
+  rollback rejection—including the journal-missing case—and evidence-free
+  `COMMAND_EXPIRED`, and add schema, persistence/outbox exact-replay, and mapping
+  tests. Do not emit before Server is upgraded. Update the Contract gitlink
+  after review.
 - **SlamCore-Updater:** no product change and no wire-contract change.
 - **SlamCoreWeb:** no change.
 

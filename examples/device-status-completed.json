@@ -1,0 +1,11 @@
+{
+  "contractVersion": "2.0",
+  "state": "completed",
+  "progressPercent": 100,
+  "message": "Update completed successfully.",
+  "errorCode": null,
+  "fromVersion": "1.0.0",
+  "targetVersion": "1.0.1",
+  "observedAtUtc": "2026-09-06T02:58:00Z",
+  "sequence": 4
+}

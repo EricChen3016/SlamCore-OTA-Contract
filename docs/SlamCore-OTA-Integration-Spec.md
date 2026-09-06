@@ -56,7 +56,7 @@ Base URL：`http://<server-host>:5000/api/v1`。Machine definitions 以 `openapi
   - request body 的 `sequence` 必須是非負整數，且 idempotency key 的 sequence suffix 必須與 body 值相同。
   - Contract 不要求 status 透過 HTTP 抵達 Server 時連續或依 allocation order；Server 對 stale、duplicate 與 transition 的 runtime 處理由 Server implementation 負責。
   - 正常 status 的 `fromVersion` 與 `targetVersion` 都是 string，且不帶 `versionEvidence`。只有 Server-owned explicit rollback `R` 已永久 `failed`、同時無法取得可信 Updater version relationship 時，兩欄才可同時為 `null`，並要求 non-null `errorCode` 與 `versionEvidence=unavailable`。任一單側 null、非 `failed` state 或其他 evidence 值均不合法。
-  - JSON Schema 無法知道 status 所屬 job type；Server 收到 `versionEvidence=unavailable` 時必須確認 idempotency key 引用 explicit rollback `R`，否則回 `400 VALIDATION_FAILED`。此 status 只 terminalize `R`，保留 original `U` 與既有 device current-version projection；`unavailable` 不表示 rollback 成功。
+  - JSON Schema 無法知道 status 所屬 job type；Server 收到 `versionEvidence=unavailable` 時必須確認 idempotency key 引用 explicit rollback `R`，否則回 `400 VALIDATION_FAILED`。此 status 只 terminalize `R`；Server **MUST NOT** update `Device.currentReleaseVersion`，也不得修改 original `U`。若需呈現 rollback failure relationship，必須使用既有 `R.originalUpdateJobId=U` 關聯；`unavailable` 不表示 rollback 成功。
 - `GET /devices/{deviceId}/history`：newest-first，`limit` 1–200。
 
 ### 4.1 Explicit command identity

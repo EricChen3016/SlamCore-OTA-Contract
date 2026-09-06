@@ -26,7 +26,7 @@
 ## Required `2.1.1` consumer work
 
 1. Server updates `ContractDeviceStatusRequest`, its JSON converter, status/schema validation, rollback contextual validation, and device-version projection. `R failed + unavailable` is terminally accepted while device version and original `U` remain unchanged; the same variant for `U` is `400 VALIDATION_FAILED`.
-2. Agent makes status versions nullable only for the special variant, serializes `versionEvidence=unavailable`, and maps definitive permanent rollback rejection plus evidence-free `COMMAND_EXPIRED`. Persistence/outbox, exact replay, and serialization tests must cover it.
+2. Agent makes status versions nullable only for the special variant, serializes `versionEvidence=unavailable`, and maps definitive permanent rollback rejection—including the journal-missing case—plus evidence-free `COMMAND_EXPIRED`. Persistence/outbox exact replay and serialization tests must cover it.
 3. Roll out Server acceptance before Agent emission. An Agent connected to an old Server must not emit the new variant; old normal status remains valid.
 4. Updater and SlamCoreWeb require no product changes. Updater's wire identity, query, and exact-replay behavior remain unchanged.
 5. Server and Agent update their Contract gitlinks only after this Contract change is reviewed.

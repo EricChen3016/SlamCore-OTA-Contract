@@ -190,6 +190,19 @@ def validate_machine_conformance(openapi_documents: dict[str, dict]) -> None:
     status_schema = load_json(status_schema_path)
     status_example_path = ROOT / "examples/device-status.json"
     status_example = load_json(status_example_path)
+    completed_status_path = ROOT / "examples/device-status-completed.json"
+    completed_status = load_json(completed_status_path)
+    failed_status_path = ROOT / "examples/device-status-failed-with-version-evidence.json"
+    failed_status = load_json(failed_status_path)
+    unavailable_status_path = (
+        ROOT / "examples/device-status-rollback-version-evidence-unavailable.json"
+    )
+    unavailable_status = load_json(unavailable_status_path)
+    expired_status_path = (
+        ROOT
+        / "examples/device-status-rollback-command-expired-version-evidence-unavailable.json"
+    )
+    expired_status = load_json(expired_status_path)
     if not isinstance(status_schema, dict) or not isinstance(status_example, dict):
         return
 
@@ -316,14 +329,117 @@ def validate_machine_conformance(openapi_documents: dict[str, dict]) -> None:
             f"{expected_unavailable}",
         )
 
+    status_examples = (
+        server.get("paths", {})
+        .get("/devices/{deviceId}/status", {})
+        .get("post", {})
+        .get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("examples", {})
+    )
+    expected_normal_examples = {
+        "completedStatus": "../examples/device-status-completed.json",
+        "failedStatusWithVersionEvidence":
+            "../examples/device-status-failed-with-version-evidence.json",
+    }
+    for name, expected_reference in expected_normal_examples.items():
+        if status_examples.get(name, {}).get("externalValue") != expected_reference:
+            fail(
+                server_path,
+                f"status {name} example must reference {expected_reference}",
+            )
+
+    positive_statuses = {
+        "normal completed status with string versions": completed_status,
+        "normal failed status with string versions": failed_status,
+        "unavailable RESOURCE_NOT_FOUND status": unavailable_status,
+        "unavailable COMMAND_EXPIRED status": expired_status,
+    }
+    if isinstance(unavailable_status, dict):
+        future_permanent_failure = copy.deepcopy(unavailable_status)
+        future_permanent_failure["errorCode"] = "FUTURE_PERMANENT_FAILURE"
+        positive_statuses[
+            "unavailable status with another valid non-null errorCode"
+        ] = future_permanent_failure
+    for label, instance in positive_statuses.items():
+        if isinstance(instance, dict):
+            validate_inline_payload(
+                label,
+                instance,
+                status_schema_path,
+                expect_valid=True,
+            )
+
+    one_of = status_schema.get("oneOf", [])
+    if len(one_of) == 2:
+        expected_branches = {
+            "normal completed status": (completed_status, [0]),
+            "normal failed status": (failed_status, [0]),
+            "unavailable failure status": (unavailable_status, [1]),
+            "unavailable expired status": (expired_status, [1]),
+        }
+        for label, (instance, expected_matches) in expected_branches.items():
+            if not isinstance(instance, dict):
+                continue
+            matches = [
+                index
+                for index, branch in enumerate(one_of)
+                if not list(Draft202012Validator(branch).iter_errors(instance))
+            ]
+            if matches != expected_matches:
+                fail(
+                    status_schema_path,
+                    f"{label} must match only oneOf branch {expected_matches}, got {matches}",
+                )
+
     normal_with_unavailable = copy.deepcopy(status_example)
     normal_with_unavailable["versionEvidence"] = "unavailable"
-    validate_inline_payload(
-        "normal status containing unavailable versionEvidence",
-        normal_with_unavailable,
-        status_schema_path,
-        expect_valid=False,
-    )
+    negative_statuses = {
+        "normal status containing unavailable versionEvidence": normal_with_unavailable,
+    }
+
+    if isinstance(failed_status, dict):
+        only_from_missing = copy.deepcopy(failed_status)
+        only_from_missing["fromVersion"] = None
+        only_from_missing["versionEvidence"] = "unavailable"
+        negative_statuses["failed status with only fromVersion null"] = only_from_missing
+
+        only_target_missing = copy.deepcopy(failed_status)
+        only_target_missing["targetVersion"] = None
+        only_target_missing["versionEvidence"] = "unavailable"
+        negative_statuses["failed status with only targetVersion null"] = only_target_missing
+
+    if isinstance(unavailable_status, dict):
+        missing_discriminator = copy.deepcopy(unavailable_status)
+        missing_discriminator.pop("versionEvidence", None)
+        negative_statuses["null versions without versionEvidence"] = missing_discriminator
+
+        unknown_discriminator = copy.deepcopy(unavailable_status)
+        unknown_discriminator["versionEvidence"] = "unknown"
+        negative_statuses["null versions with unknown versionEvidence"] = unknown_discriminator
+
+        null_error = copy.deepcopy(unavailable_status)
+        null_error["errorCode"] = None
+        negative_statuses["null versions with null errorCode"] = null_error
+
+        states = status_schema.get("properties", {}).get("state", {}).get("enum", [])
+        for state in states:
+            if state == "failed":
+                continue
+            invalid_state = copy.deepcopy(unavailable_status)
+            invalid_state["state"] = state
+            negative_statuses[f"{state} status with unavailable version evidence"] = (
+                invalid_state
+            )
+
+    for label, instance in negative_statuses.items():
+        validate_inline_payload(
+            label,
+            instance,
+            status_schema_path,
+            expect_valid=False,
+        )
 
 
 def validate_explicit_command_conformance(openapi_documents: dict[str, dict]) -> None:
@@ -631,6 +747,10 @@ def main() -> int:
         "examples/device-registration-explicit-rollback.json":
             "schemas/server-api/device-registration.schema.json",
         "examples/device-status.json": "schemas/server-api/device-status.schema.json",
+        "examples/device-status-completed.json":
+            "schemas/server-api/device-status.schema.json",
+        "examples/device-status-failed-with-version-evidence.json":
+            "schemas/server-api/device-status.schema.json",
         "examples/device-status-rollback-version-evidence-unavailable.json":
             "schemas/server-api/device-status.schema.json",
         "examples/device-status-rollback-command-expired-version-evidence-unavailable.json":
@@ -689,6 +809,8 @@ def main() -> int:
     for relative in [
         "examples/device-registration-explicit-rollback.json",
         "examples/device-status.json",
+        "examples/device-status-completed.json",
+        "examples/device-status-failed-with-version-evidence.json",
         "examples/device-status-rollback-version-evidence-unavailable.json",
         "examples/device-status-rollback-command-expired-version-evidence-unavailable.json",
         "examples/device-command-update.json",

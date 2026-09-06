@@ -73,8 +73,9 @@ paths:
         be an explicit rollback R, state MUST be failed, errorCode MUST be
         non-null, and both version fields MUST be null. Server MUST reject that
         variant with 400 VALIDATION_FAILED for an update U or any non-rollback
-        job. It terminalizes only R, preserves the device current-version
-        projection and original U, and never indicates rollback success.
+        job. It terminalizes only R, MUST NOT update
+        Device.currentReleaseVersion or original U, and never indicates
+        rollback success. Any relationship remains R.originalUpdateJobId=U.
       parameters: [{$ref: '#/components/parameters/DeviceId'}, {$ref: '#/components/parameters/ContractVersion'}, {$ref: '#/components/parameters/CorrelationId'}, {$ref: '#/components/parameters/StatusIdempotencyKey'}]
       requestBody:
         required: true
@@ -85,6 +86,12 @@ paths:
               initialStatus:
                 summary: First durable status observation for job-01J5QZ9WZ7H1
                 externalValue: ../examples/device-status.json
+              completedStatus:
+                summary: Normal completed status with authoritative string versions
+                externalValue: ../examples/device-status-completed.json
+              failedStatusWithVersionEvidence:
+                summary: Normal failed status with authoritative string versions
+                externalValue: ../examples/device-status-failed-with-version-evidence.json
               rollbackFailureWithoutVersionEvidence:
                 summary: Explicit rollback R permanently failed without authoritative Updater version evidence
                 externalValue: ../examples/device-status-rollback-version-evidence-unavailable.json
