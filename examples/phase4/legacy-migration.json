@@ -1,0 +1,196 @@
+{
+  "sourceRecordId": "approved-legacy-registration-1",
+  "sourceSha256": "0b91e1ca74a4b50f68bc1d04f0afb7f6e94427563898ec724f6372e1db524b35",
+  "source": {
+    "agentId": "A1",
+    "deviceId": "D1",
+    "updaterId": "P1",
+    "jobs": [
+      {
+        "commandType": "update",
+        "serverCommandJobId": "U1",
+        "originalUpdateJobId": null,
+        "sequence": 3
+      },
+      {
+        "commandType": "rollback",
+        "serverCommandJobId": "R1",
+        "originalUpdateJobId": "U1",
+        "sequence": 1
+      }
+    ]
+  },
+  "routeSnapshot": {
+    "routeId": "route-D1",
+    "routeVersion": 1,
+    "topologyVersion": 1,
+    "serverId": "server-1",
+    "targetDeviceId": "D1",
+    "targetUpdaterId": "P1",
+    "orderedAgentIds": [
+      "A1"
+    ],
+    "capabilitySnapshot": {
+      "agents": [
+        {
+          "agentId": "A1",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A1"
+        }
+      ],
+      "updater": {
+        "updaterId": "P1",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "physical-operation-evidence-v1"
+        ],
+        "evidenceId": "capability-P1"
+      },
+      "device": {
+        "deviceId": "D1",
+        "capabilities": [
+          "explicit-rollback-v1"
+        ],
+        "registrationEventId": "device-registration-D1"
+      }
+    },
+    "createdAtUtc": "2026-09-15T00:00:00Z",
+    "routeSnapshotHash": "ab0eca394d8073ae142a732fc290690463d21879eaf134375497c5fa30fac833"
+  },
+  "authority": {
+    "contractVersion": "2.0",
+    "serverId": "server-1",
+    "topologyVersion": 1,
+    "createdAtUtc": "2026-09-15T00:00:00Z",
+    "agents": [
+      {
+        "agentId": "A1",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "explicit-rollback-v1",
+          "hierarchical-relay-v1"
+        ],
+        "registrationEventId": "registration-A1"
+      },
+      {
+        "agentId": "A2",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "explicit-rollback-v1",
+          "hierarchical-relay-v1"
+        ],
+        "registrationEventId": "registration-A2"
+      },
+      {
+        "agentId": "A3",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "explicit-rollback-v1",
+          "hierarchical-relay-v1"
+        ],
+        "registrationEventId": "registration-A3"
+      },
+      {
+        "agentId": "A4",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "explicit-rollback-v1",
+          "hierarchical-relay-v1"
+        ],
+        "registrationEventId": "registration-A4"
+      }
+    ],
+    "parentLinks": [
+      {
+        "parentAgentId": "A1",
+        "childAgentId": "A2"
+      },
+      {
+        "parentAgentId": "A2",
+        "childAgentId": "A3"
+      }
+    ],
+    "attachments": [
+      {
+        "deviceId": "D1",
+        "updaterId": "P1",
+        "agentId": "A1",
+        "capability": {
+          "deviceId": "D1",
+          "capabilities": [
+            "explicit-rollback-v1"
+          ],
+          "registrationEventId": "device-registration-D1"
+        }
+      },
+      {
+        "deviceId": "D2",
+        "updaterId": "P2",
+        "agentId": "A2",
+        "capability": {
+          "deviceId": "D2",
+          "capabilities": [
+            "explicit-rollback-v1"
+          ],
+          "registrationEventId": "device-registration-D2"
+        }
+      },
+      {
+        "deviceId": "D3",
+        "updaterId": "P3",
+        "agentId": "A3",
+        "capability": {
+          "deviceId": "D3",
+          "capabilities": [
+            "explicit-rollback-v1"
+          ],
+          "registrationEventId": "device-registration-D3"
+        }
+      }
+    ],
+    "updaters": [
+      {
+        "updaterId": "P1",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "physical-operation-evidence-v1"
+        ],
+        "evidenceId": "capability-P1"
+      },
+      {
+        "updaterId": "P2",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "physical-operation-evidence-v1"
+        ],
+        "evidenceId": "capability-P2"
+      },
+      {
+        "updaterId": "P3",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "physical-operation-evidence-v1"
+        ],
+        "evidenceId": "capability-P3"
+      }
+    ]
+  },
+  "projectedJobs": [
+    {
+      "commandType": "update",
+      "serverCommandJobId": "U1",
+      "originalUpdateJobId": null,
+      "sequence": 3
+    },
+    {
+      "commandType": "rollback",
+      "serverCommandJobId": "R1",
+      "originalUpdateJobId": "U1",
+      "sequence": 1
+    }
+  ]
+}

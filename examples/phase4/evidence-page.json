@@ -1,0 +1,125 @@
+{
+  "records": [
+    {
+      "serverCommandJobId": "R3",
+      "originalUpdateJobId": "U3",
+      "updaterJobId": "U3",
+      "operationCorrelationId": "20000000-0000-4000-8000-000000000003",
+      "authorizedLeafAgentId": "A3",
+      "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+      "source": {
+        "contractVersion": "2.0",
+        "updaterId": "P3",
+        "updaterJobId": "U3",
+        "authorizedLeafAgentId": "A3",
+        "operationKind": "explicitRollback",
+        "operationPhase": "invoked",
+        "operationAttemptOrdinal": 1,
+        "startedAtUtc": "2026-09-15T00:04:00Z",
+        "completedAtUtc": null,
+        "result": "inProgress",
+        "evidenceSource": {
+          "kind": "updaterJournal",
+          "journalId": "journal-P3-1",
+          "recordSha256": "356560291e4d663db17c856e43ee3f292f07bff094e1b1b5e64580c680a90b78"
+        },
+        "journalSequence": 7,
+        "links": {
+          "journalRecordId": "journal-record-7",
+          "markerVersion": "1.0.0",
+          "symlinkTarget": "/releases/1.0.0",
+          "runtimeVersion": "1.0.0",
+          "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "executionEvidence": {
+          "state": "notStarted",
+          "sourceRecordId": null,
+          "observedAtUtc": null
+        }
+      }
+    },
+    {
+      "serverCommandJobId": "R3",
+      "originalUpdateJobId": "U3",
+      "updaterJobId": "U3",
+      "operationCorrelationId": "20000000-0000-4000-8000-000000000003",
+      "authorizedLeafAgentId": "A3",
+      "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+      "source": {
+        "contractVersion": "2.0",
+        "updaterId": "P3",
+        "updaterJobId": "U3",
+        "authorizedLeafAgentId": "A3",
+        "operationKind": "explicitRollback",
+        "operationPhase": "activationStarted",
+        "operationAttemptOrdinal": 1,
+        "startedAtUtc": "2026-09-15T00:04:00Z",
+        "completedAtUtc": null,
+        "result": "inProgress",
+        "evidenceSource": {
+          "kind": "updaterJournal",
+          "journalId": "journal-P3-1",
+          "recordSha256": "b1f2cdaafd537b689dde88e4ab2b3d38d9f87d25deb66ec7ca4bd2c481809249"
+        },
+        "journalSequence": 8,
+        "links": {
+          "journalRecordId": "journal-record-8",
+          "markerVersion": "1.0.0",
+          "symlinkTarget": "/releases/1.0.0",
+          "runtimeVersion": "1.0.0",
+          "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "executionEvidence": {
+          "state": "unknown",
+          "sourceRecordId": null,
+          "observedAtUtc": null
+        }
+      }
+    },
+    {
+      "serverCommandJobId": "R3",
+      "originalUpdateJobId": "U3",
+      "updaterJobId": "U3",
+      "operationCorrelationId": "20000000-0000-4000-8000-000000000003",
+      "authorizedLeafAgentId": "A3",
+      "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+      "source": {
+        "contractVersion": "2.0",
+        "updaterId": "P3",
+        "updaterJobId": "U3",
+        "authorizedLeafAgentId": "A3",
+        "operationKind": "explicitRollback",
+        "operationPhase": "completed",
+        "operationAttemptOrdinal": 1,
+        "startedAtUtc": "2026-09-15T00:04:00Z",
+        "completedAtUtc": "2026-09-15T00:05:00Z",
+        "result": "succeeded",
+        "evidenceSource": {
+          "kind": "updaterJournal",
+          "journalId": "journal-P3-1",
+          "recordSha256": "f85856b8d89fecf675eb00e8d9fb08bdeb84007b04658e6311e80096f815ac99"
+        },
+        "journalSequence": 9,
+        "links": {
+          "journalRecordId": "journal-record-9",
+          "markerVersion": "1.0.0",
+          "symlinkTarget": "/releases/1.0.0",
+          "runtimeVersion": "1.0.0",
+          "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "executionEvidence": {
+          "state": "confirmed",
+          "sourceRecordId": "physical-observation-9",
+          "observedAtUtc": "2026-09-15T00:05:00Z"
+        }
+      }
+    }
+  ],
+  "nextAfterJournalSequence": null,
+  "complete": true,
+  "journalHighWatermark": 9,
+  "updaterJobId": "U3",
+  "journalId": "journal-P3-1",
+  "afterJournalSequence": 0,
+  "retentionComplete": true
+}

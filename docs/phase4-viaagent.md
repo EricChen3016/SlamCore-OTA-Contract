@@ -1,0 +1,425 @@
+# Phase 4 ViaAgent contract — normative
+
+Repository **2.2.0**, runtime **2.0**. The only command path is:
+
+```text
+Server → A1 → … → An → Updater       1 ≤ n ≤ 32
+```
+
+This document and `schemas/phase4/` freeze the additive protocol. The new
+`openapi/slamcore-phase4-v1.yaml` describes host ownership for each operation.
+MUST/MUST NOT are requirements. Existing Contract 2.0 APIs remain available,
+with unchanged DTOs, required headers, states, lifecycle, ownership and replay
+semantics. The new interfaces live at `/api/v1/phase4` on the owning host.
+No `deploymentMode` field is introduced. DirectUpdater is unsupported; there
+is no Server-to-Updater mutation, status ingress, adapter or fallback.
+
+## 1. Authority, identity and version decision
+
+Server owns inventory, accepted topology revisions, device attachments, route
+snapshots, logical jobs and history. An Agent owns durable local relay
+obligations; Updater owns device-local U, version evidence and physical journal.
+`AgentId`, `DeviceId` and `JobId` are distinct identities; equal strings across
+these three domains MUST be rejected. UpdaterId is a separate stable inventory
+identity; it is not a URL, DeviceId, or a replacement for U. Server identity is
+explicit in the snapshot, preventing an ambiguous first hop in a forest.
+
+For update, `serverCommandJobId = updaterJobId = U` and
+`originalUpdateJobId = null`. Every Agent and Updater retains U. For rollback,
+`serverCommandJobId = R`, `originalUpdateJobId = updaterJobId = U`, and R differs
+from U. At most one logical R exists per U, including permanently failed R.
+Creation requires the original successful U on the same device and its retained
+rollbackable release. Existing per-device active-job protection applies;
+sharing an Agent does not introduce a global deployment lock.
+
+A breaking change would require a new major version under ADR-0001. This is a
+minor release because new DTOs/endpoints are capability-gated and **no existing
+field meaning or responsibility changes**. Root sequence ownership applies to
+new routed jobs only. The legacy single Agent remains its existing sequence
+owner. The dedicated new history page fixes the R/U and unavailable-evidence
+representation gap without extending the legacy `UpdateStatus[]` response.
+The additive runtime-2.0 precedent is repository 2.1.0.
+
+## 2. Observation versus accepted topology
+
+`agent-observation.schema.json` is Agent-scoped registration/heartbeat evidence:
+stable `observationEventId`, the complete current Agent capability set, direct
+parent observation, direct child IDs, direct device attachments and observation
+time/revision. Zero children and zero devices are valid (example A4).
+The authenticated origin must equal `agent.agentId`. An Agent may report only
+its own immediate neighbors. Duplicate attachments or self-neighbor observations
+are invalid. Endpoint existence, reachability, `agentVersion`, and an online
+flag never establish attachment or capability.
+
+An Agent may send its own authenticated observation to Server. If deployment
+requires observation relay, each parent must durably retain the original
+observation and authenticated originating identity, then use the same event key
+when forwarding through the configured ancestry. Transport must preserve
+verifiable original identity; a parent claiming a child identity in JSON is
+insufficient. If end-to-end origin cannot be authenticated, forwarded observation
+is rejected; use direct authenticated registration. This does not authorize a
+command path that bypasses any Agent.
+
+`topology.schema.json` is a Server-owned accepted revision. Parent links form a
+rooted tree/forest: a child appears in at most one link, all endpoints exist,
+no cycle, no orphan, unique Agent IDs. A device has exactly one attachment and
+an Updater has one device attachment. An Agent may attach devices **and** have
+children; “Leaf” is a role for a particular route, not a globally childless node.
+Device registration capability evidence remains device-scoped; the exact
+`explicit-rollback-v1` token retains its existing meaning.
+
+Registration is observation, not configuration authority. Server must serialize
+acceptance, validate authorization and revision, and durably retain receipt and
+new accepted revision before ack. Same event/key + same original body returns
+the receipt; altered body conflicts. Old observations may be retained as audit
+facts but MUST NOT replace newer accepted authority. Only authorized control
+plane changes parent/attachment authority. This Contract defines no public
+unauthorized topology-write endpoint, database, discovery or PKI implementation.
+
+## 3. Route snapshot and canonical SHA-256
+
+`route-snapshot.schema.json` requires routeId, routeVersion, routeSnapshotHash,
+topologyVersion, serverId, targetDeviceId, targetUpdaterId, orderedAgentIds,
+capabilitySnapshot and createdAtUtc. Ordered IDs are Root → Leaf, 1..32 unique
+entries. Root and Leaf are derived as the first and last IDs. Capability entries
+are in the same order and contain exact Agent registration evidence; device and
+Updater evidence are also captured. Device capability is distinct from Agent
+hierarchical capability. No secrets, credentials, endpoint URLs, bearer tokens,
+or signed download URLs are permitted in the snapshot.
+
+Server resolves the unique chain from the accepted device attachment to a root,
+validates capabilities, computes the hash, and durably commits it with the job
+before dispatch. Agents may verify the hash, but MUST NOT replace, recompute into
+an accepted identity, reorder, skip, append, reroute or select an alternate path.
+R uses the **byte-equivalent semantic snapshot of original U**, including route
+ID, timestamps, capability registration identities and hash; R does not create
+a refreshed route. Retained authority revisions must remain queryable internally
+for verification even after the current topology changes.
+
+Canonical algorithm `route-json-ascii-sha256-v1`:
+
+1. Validate the complete closed route schema; reject duplicate JSON object keys
+   before parsing. Remove only top-level `routeSnapshotHash`.
+2. All keys/string values in this object must be printable ASCII U+0020..U+007E.
+   Integers are 1..2147483647 where required; floats/exponents are invalid.
+   No Unicode normalization, platform locale or URL normalization occurs.
+3. Recursively sort object keys by ascending ASCII code units. Preserve array
+   order, including capabilities (producers sort capability tokens ascending
+   before freezing a snapshot; consumers never sort received arrays).
+4. Serialize compact JSON without whitespace or BOM: ASCII decimal integers,
+   standard lowercase `true`/`false`/`null`, `\"` for quotation and `\\` for
+   backslash; leave `/` and every other permitted ASCII character unescaped.
+   Timestamp spelling is exactly `YYYY-MM-DDTHH:mm:ssZ` with no fractions.
+5. SHA-256 over these ASCII/UTF-8 bytes, encoded as 64 lowercase hex digits.
+
+`examples/phase4/hash-vectors.json` contains exact canonical strings and digests
+for single-hop, branching and N-hop; consumers must reproduce these vectors in
+their own language. `scripts/phase4_contract.py` is a pure conformance utility,
+not a route planner or consumer implementation.
+
+## 4. Correlation, hop indexing and authenticated adjacency
+
+Server assigns a lowercase UUID `operationCorrelationId` independently for each
+U and R. R's correlation differs from U; originalUpdateJobId links them. This
+identity is immutable across retry, restart, command, status and history.
+`X-Correlation-Id` remains a UUID for one HTTP hop/attempt. Attempts may choose a
+new value. ErrorResponse echoes the triggering valid header; if absent/malformed,
+the service generates a diagnostic UUID because no valid echo exists. Correlation
+never substitutes for a job ID, idempotency key or sequence.
+
+For `[A1,A2,A3]`, the immutable edge indexes are:
+
+| Index | Downstream | Upstream |
+| --- | --- | --- |
+| 0 | Server → A1 | A1 → Server |
+| 1 | A1 → A2 | A2 → A1 |
+| 2 | A2 → A3 | A3 → A2 |
+| 3 | A3 → Updater | Updater → A3 (leaf-local evidence only) |
+
+Index is always the Root-to-Leaf edge number, **not** the traversal counter.
+Direction changes the endpoints; neither index nor route changes.
+`hopId = SHA256(canonical({serverCommandJobId, hopIndex, direction, senderKind,
+senderId, receiverKind, receiverId, routeSnapshotHash}))`, using section 3's
+serialization. It is stable for that directional logical edge across retries.
+Leaf-local Updater edge context is retained by Leaf; it is not injected into the
+old Updater mutation body or raw status. Every routed status sender is an Agent.
+
+Receiver independently authenticates the transport principal, verifies its own
+identity, and compares both to the immediate snapshot neighbors and configured
+local trust/attachment. A body claiming the correct peer is not authorization.
+Reject wrong root, wrong leaf, wrong caller, wrong receiver, non-neighbor, loop,
+duplicate ID, empty route and overflow before any durable acceptance or downstream
+mutation. A diagnostic security audit record is not an acceptance receipt.
+
+## 5. Commands, acquisition and leaf projection
+
+Server's Agent-oriented feed returns only jobs whose first snapshot ID equals
+the authenticated requesting Agent. GET does not allocate identity or acknowledge
+acceptance. Repeat GET and restart retain the command exactly. Page cursors fix
+a read watermark and stable keyset order; expired never-submitted commands are
+not dispatched. A pure relay Root is valid. A feed can include independent jobs
+for several devices; sibling outage does not corrupt their identities.
+
+All Agents save the complete command, R/U mapping, command fingerprint, immutable
+route, resolved immediate endpoint/peer evidence, stable logical hop, expiry,
+submission uncertainty and downstream obligation atomically **before both ack and
+forward**. Persist endpoint resolution outside public route snapshots; never
+expose credentials. At the next Agent the payload and semantic fingerprint remain
+the same; only the deterministic hopContext changes.
+
+Only Leaf projects `command.payload` to the existing Updater API:
+
+| Command | Updater request | Key | Query |
+| --- | --- | --- | --- |
+| U | existing UpdateRequest, jobId U, exact package metadata | persisted U key for new routed U | GET /api/v1/update/U |
+| R | `{ "contractVersion": "2.0", "jobId": "U" }` | `rollback:U` | GET /api/v1/update/U |
+
+The new routed envelope MUST NOT be sent to Updater. Updater never receives R as
+operation identity or rebuilds R. Existing Updater semantic fingerprint, lifecycle,
+package validation, ROS/workspace boundaries, activation/recovery and rollback
+responsibilities are unchanged. Opaque metadata, if separately present, is not a
+new Updater job or fingerprint component.
+
+## 6. Replay fingerprints, durability and failure semantics
+
+| Mutation boundary | Idempotency key / scope | Complete semantic fingerprint |
+| --- | --- | --- |
+| Observation / Server | `observation:<AgentId>:<observationEventId>` | complete original observation |
+| Routed command / receiving Agent | `command:<serverCommandJobId>` | complete command except hopContext |
+| Routed event / receiving Agent | `event:<serverCommandJobId>:<statusEventId>` | complete event except hopContext |
+| Root status / Server | `status:<serverCommandJobId>:<sequence>` | complete root-status body |
+| Leaf → Updater update | existing persisted update key, new routed jobs use U | unchanged existing UpdateRequest semantics |
+| Leaf → Updater rollback | `rollback:U` | unchanged rollback body `{contractVersion,jobId:U}` |
+
+Fingerprint excludes HTTP attempt headers, never target, route, package URL,
+package digest, platform, creation/expiry, R/U or operation correlation. The
+command/event hop envelope is independently validated and fixed for that boundary;
+excluding it does not permit route mutation. Root-status fingerprints include its
+fixed root hop. Fingerprints use canonical JSON from section 3; for a status event,
+replace message with the lowercase hex encoding of its original UTF-8 bytes before
+canonicalization so arbitrary human text is preserved exactly. No text trimming.
+
+Same key + fingerprint returns the durable original acceptance/receipt. Same job
+with different target/route/payload/correlation/expiry is `409 IDEMPOTENCY_CONFLICT`
+even if a sender presents a new key. Same key with altered hop context is rejected
+by adjacency checks. No new U, R, operation correlation, logical hop, obligation,
+sequence or physical ordinal is allocated for retry.
+
+| Condition | Required behavior |
+| --- | --- |
+| Response lost before/after accept, timeout, reset, restart | load durable obligation, query same job at immediate downstream; reconcile then exact replay when needed |
+| Query 404 while outcome unknown | retain unknown and query/exact replay; 404 alone never terminalizes |
+| Query confirms acceptance/terminal | validate durable identity/fingerprint, retain/replay status obligation |
+| First submission at/after expiry | no downstream mutation; terminal failed COMMAND_EXPIRED; R may use unavailable version evidence |
+| Submission may already have occurred, expiry/late status | continue same query/replay; retain all receipts/evidence and accepted route |
+| Server outage | downstream work/recovery continues; Root durable outbox retains terminal events and exact sequence/key |
+| Root/Relay/Leaf restart | restore identities, receipts, source dedupe, sequence allocations and downstream obligations before new dispatch |
+| Definitive permanent mutation rejection | owner records terminal failure and propagates stable event, preserving original obligation/evidence |
+| Stale route, changed adjacency, route mismatch, incapable neighbor | fail closed, no substitute path or silent downgrade; report deterministic rejection |
+
+A new dispatch checks current authenticated capabilities and local adjacency as
+well as the retained snapshot. Unrelated topology revision changes never mutate an
+accepted route. If a retained route is no longer authorized, do not send a new
+mutation. A never-submitted operation can fail terminally with STALE_ROUTE,
+INVALID_ADJACENCY or CAPABILITY_MISMATCH. An operation with uncertain downstream
+acceptance keeps its recovery/evidence obligation; a rejected retry is **not** proof
+that the earlier operation never ran. It must reconcile through the original
+permitted boundary or await explicit remediation. Expiry never deletes evidence.
+
+New structured errors are defined only in the Phase 4 ErrorResponse schema.
+400 VALIDATION_FAILED, 401/403 UNAUTHORIZED_PEER, 409 INVALID_TOPOLOGY/STALE_ROUTE/
+ROUTE_MISMATCH/INVALID_ADJACENCY/IDEMPOTENCY_CONFLICT, 422 CAPABILITY_MISMATCH or
+INCOMPATIBLE_RELEASE are nonretryable request rejections. 503 DEPENDENCY_UNAVAILABLE
+and transport failure leave acceptance uncertain. Their receipt/outcome meaning
+must not be inferred solely from retryable=false; pre-existing obligations remain.
+
+## 7. Status, root sequence and dedicated history
+
+Leaf commits the first semantic observation with `statusEventId` and timestamp;
+all upstream relays retain that exact observation, including R/U, correlation,
+route, versions and raw physical evidence. Changing only the directional hop
+envelope does not create a new event. Same event ID with altered semantic payload
+is a conflict. Relays never allocate Server sequence. Each new observation at Root
+atomically stores event dedupe, next sequence and the exact outbox body. Sequence
+starts at 0 per Server job, incrementing exactly 1 for each new local observation.
+Retries and restart reuse that body, sequence and key.
+
+Allocation order does not require HTTP arrival order. Server stores immutable
+receipts, accepts exact replay, handles stale/gapped arrivals without rolling back
+latest sequence, and preserves terminal obligations. A conflicting existing
+sequence or reassigned event is rejected. Newer nonterminal observations cannot
+reopen terminal jobs. The validator distinguishes local allocation assertions from
+Server ingest tests. Expired internal scheduling state never appears on the wire;
+late valid status is accepted and does not reclaim a released active device slot.
+
+The routed status has all identity fields plus state/progress/message/error,
+versionEvidence, observedAtUtc, hopContext and physicalEvidence. Existing twelve
+public update states retain their meanings. Explicit rollback uses only queued,
+rolling_back, rolled_back, failed. R rolled_back is success; U rolled_back is a
+failed update with automatic recovery. U and R history rows remain separate.
+
+New `versionEvidence` is an object with availability and required fromVersion/
+targetVersion. Available uses two SemVer strings. Unavailable requires paired
+nulls, **rollback + failed + non-null errorCode**. It is illegal for update U or
+rollback success/active states. Do not fabricate versions from inventory, old U
+rows, package names or the command. Missing evidence leaves device version and
+original U unchanged. For a routed update U rejected before the rejecting Agent has ever forwarded
+its obligation, the new DTO additionally permits availability `notObserved` with
+paired null versions, failed state and a specific pre-forward rejection code.
+Required failureEvidence names `stage=neverForwarded`, the rejecting snapshot
+Agent and its durable obligationReceiptId. The receiver must validate this
+against the authenticated Agent's retained never-forwarded record. Command receipts
+include receiptId and monotonic downstreamEverSubmitted; the latter can never return
+to false after forwarding. Receipt job/hash/fingerprint and rejecting Agent must all
+match, and state must be terminal before this failure is projected. It cannot be
+used after submission might have occurred, for a physical operation, or for R.
+This separately named variant is exclusive to new routed interfaces; it neither
+relaxes the legacy unavailable R-only union nor guesses a device version. Device
+version and original records remain unchanged. See
+`update-before-forward-failure.json` and its negative fixtures.
+
+The new history endpoint returns these full root envelopes;
+the old history endpoint remains the old schema and meaning.
+
+## 8. Durable physical-operation evidence
+
+Updater exposes a new **read-only**, authorized-Leaf interface for raw U journal
+records. It is topology-agnostic: raw records contain U, UpdaterId and authenticated
+authorizedLeafAgentId, never Server R, route or operation correlation. Leaf joins
+raw records to its durable command mapping, adds R/U, stable operation correlation
+and routeSnapshotHash, then preserves the complete source object. Relays and Root
+retain it unchanged. Root status and dedicated Server/Agent read interfaces expose
+those projections; evidence is never available only in unstructured private logs.
+
+Identity of a physical attempt is `(updaterId, updaterJobId U, operationKind,
+operationAttemptOrdinal)`. Ordinal starts at 1 **separately for each U and kind**,
+is contiguous for actual engine attempts, and survives process/journal restart.
+Delivery retries allocate neither ordinal nor physical phase. Kind is activation,
+automaticRecovery or explicitRollback. Automatic recovery still belongs to its
+failed update U; it is never an explicit rollback R.
+
+Each attempt has at most one immutable record for each phase:
+
+- invoked: the canonical engine durably begins an actual logical execution
+  attempt (duplicate request handling does not emit another invocation);
+- activationStarted: durable entry/intent at the activation boundary, tied to
+  journal/marker recovery; by itself this is not proof that a switch executed;
+- completed: operation result and completion time, including failed invocation
+  that never reached activation.
+
+`startedAtUtc` is the fixed invocation start on all phases; completedAtUtc is null
+until completed. Journal sequence increases within one stable Updater journal,
+with one immutable record per `(updaterId,journalId,journalSequence)`. Journal IDs
+cannot reset ordinal identity. Journal/record IDs must resolve to the source;
+recordSha256 hashes the complete raw record excluding only evidenceSource's own
+recordSha256 with section 3 canonicalization. Paths in evidence are sanitized
+printable ASCII. No credentials or full secret-bearing environment strings.
+
+Links expose durable journalRecordId plus marker version, symlink release target,
+runtime version and artifact SHA-256. Unknown links are explicit nulls. A succeeded
+completion requires these runtime links present and consistent: marker version
+matches runtime version and symlink's last component; runtime artifact digest is
+known. Consumers additionally verify these links against independently captured
+journal/filesystem/runtime artifacts; a self-reported hash alone is not provenance
+or proof that a physical switch happened. Failed records may retain unequal or
+unknown links as failure evidence, never silently “repair” them in projection.
+
+`executionEvidence` separates physical facts from journal intent. `notStarted`
+with null observation is used at invocation. An activation-boundary intent with
+no direct execution capture is `unknown`. `confirmed` requires a durable direct
+sourceRecordId and observedAtUtc from actual engine execution observation, checked
+against captured journal/runtime evidence. A succeeded completion requires confirmed
+execution. An intent-only crash remains unknown; a later completed phase may resolve
+it using direct source evidence without altering the earlier immutable phase record.
+If execution cannot be established, retain unknown; never manufacture confirmation
+from a final version or an ordinal. A failed invocation without activationStarted
+has zero observed physical starts. A boundary intent without confirmation has an
+unresolved count, not an exactly-once result.
+
+Count **distinct phase identities**, after exact-replay dedupe. A rollback invoked
+record counts invocation; activationStarted counts boundary intents. confirmedPhysicalStarts counts only
+physical starts backed by executionEvidence; unresolvedPhysicalStarts counts intents
+without that confirmation. Do not equate invocation, intent and confirmed execution. A failed invocation can have zero activations. Likewise,
+count U confirmed physical starts independently from automaticRecovery confirmed
+physical starts. `intent-only-evidence-page.json` returns proven=false even with a
+complete retained journal: one intent, zero confirmed starts, one unresolved start.
+`physical-operations.json` includes activation U3, recovery for separate failed
+U-recovery, and explicit rollback R3→U3. `durable-transcript.json` contains two
+logical commands, six Agent obligations, twelve deliveries, one update activation,
+and one explicit-rollback invocation/activation. These are synthetic Contract
+fixtures, **not** HIL evidence or a claim about deployed runtimes.
+
+Each evidence page also names updaterJobId, stable journalId, the incoming
+afterJournalSequence, and retentionComplete. The first cursor is 0; nonfinal
+pages have complete=false and nextAfterJournalSequence equal to their last record.
+The final page has a null next cursor. Complete=true requires retentionComplete=true;
+retention loss remains explicitly partial. All pages retain one job/journal/watermark,
+strict increasing unique sequence, and exact equality to matching authoritative
+source records through that watermark. A complete empty record set still proves no
+physical operation; the evidence result is unproven. An unknown execution prevents
+a proven count even when pagination and retention are complete.
+
+Evidence queries fix a journal high-watermark on the first page and return records
+in increasing journalSequence; subsequent pages use afterJournalSequence. Retain
+source journal IDs and evidence across retries/expiry. `complete=false` or missing
+records/capture means unproven; final version or one completion row never proves
+exactly once. To claim a count, HIL must establish complete durable source coverage
+for the operation and compare raw source, Leaf projection and Root history, including
+before/after crash capture. Read-interface pagination is validated against an
+explicit authoritative source set in Contract tests; it cannot attest a real device.
+
+## 9. Capability negotiation, migration and security
+
+Every new operation requires `X-SlamCore-Contract-Version: 2.0` plus exact
+`X-SlamCore-Capability: hierarchical-relay-v1`; the raw Updater evidence read uses
+`physical-operation-evidence-v1` instead. Unknown/missing/mismatched negotiated
+values fail closed (missing header 400, unsupported value 422). These headers
+are assertions, not authority: current authenticated registration evidence and
+local support must agree. The complete capability set replaces the previous set.
+Unknown advertised tokens may be stored, but never imply a recognized capability.
+
+All route Agents require exact Agent-scoped hierarchical-relay-v1; zero-device
+Agents still register. Updater needs exact physical-operation-evidence-v1 before
+new routed Phase 4 dispatch. Existing explicit-rollback-v1 stays device-scoped and
+must be present at R creation and dispatch. It never implies hierarchical support.
+Removal withholds new dispatch, without deleting accepted recovery obligations.
+Rollout order: Contract review/pin → Server new storage/read/ingest with dispatch
+disabled → Updater evidence capability → all Agents durable relay migrations and
+capability registration → verify exact route capability evidence → enable creation.
+Never send route-critical fields to an old deserializer or downgrade to legacy
+single-hop because one relay is incapable.
+
+Legacy `[legacy AgentId]` migration requires explicit durable evidence linking old
+DeviceId, stable Agent identity, authorized attachment and Updater identity. Preserve
+old U/R, registrations, receipts, sequence ownership and outbox. Missing/ambiguous
+records remain unresolved and ineligible for new routed dispatch; endpoint URL,
+online status or route length is never migration evidence. Existing accepted legacy
+operations finish with their existing 2.0 semantics. The new endpoint does not force
+route fields onto old records. See compatibility-matrix.md for consumer combinations.
+
+Deployment supplies authenticated adjacent-peer identity and authorization per
+Server/Agent/Updater trust boundary. Only the authorized Leaf may call Updater.
+Unauthorized requests cause no accepted obligation or filesystem mutation. TLS,
+credential rotation and PKI implementation are consumer/deployment responsibilities;
+this change neither exposes new listen interfaces nor implements them. Secret-bearing
+headers/tokens never enter route/history/logs. Package URLs must be public/sanitized
+immutable addresses; fetch credentials stay out of semantic fingerprints and use
+separately configured transport authentication.
+
+## 10. Conformance and handoff
+
+`python scripts/validate-contracts.py` runs unchanged legacy schema/OpenAPI/rollback
+regressions plus every Phase 4 fixture and actual cross-field checks. Negative
+fixtures use explicit JSON-pointer mutations of validated positive bases, and must
+fail with the exact intended diagnostic, never an unrelated malformed prerequisite.
+`docs/phase4-acceptance.md` maps issue requirements to implementation and evidence.
+
+Consumer implementation remains owned by
+[Server #8](https://github.com/EricChen3016/SlamCore-Server/issues/8),
+[Agent #9](https://github.com/EricChen3016/SlamCore-Agent/issues/9), and
+[Updater #55](https://github.com/EricChen3016/SlamCore-Updater/issues/55).
+Each must pin the reviewed Contract commit and reproduce its schema/hash/negative
+vectors plus real consumer persistence/restart tests. Production/HIL qualification
+belongs solely to [Server #18](https://github.com/EricChen3016/SlamCore-Server/issues/18).
+Phase 3 evidence gaps remain unproven; this Contract does not close them, implement
+consumer runtimes, or approve deployment.

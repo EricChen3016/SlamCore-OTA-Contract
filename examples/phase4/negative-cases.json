@@ -1,0 +1,1622 @@
+[
+  {
+    "name": "cycle",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/parentLinks/2",
+        "value": {
+          "parentAgentId": "A3",
+          "childAgentId": "A1"
+        }
+      }
+    ],
+    "expectedCode": "CYCLE"
+  },
+  {
+    "name": "multi-parent",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/parentLinks/2",
+        "value": {
+          "parentAgentId": "A4",
+          "childAgentId": "A3"
+        }
+      }
+    ],
+    "expectedCode": "MULTI_PARENT"
+  },
+  {
+    "name": "orphan",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/parentLinks/0/parentAgentId",
+        "value": "missing"
+      }
+    ],
+    "expectedCode": "ORPHAN"
+  },
+  {
+    "name": "duplicate-agent",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/agents/3",
+        "value": {
+          "agentId": "A1",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A1"
+        }
+      }
+    ],
+    "expectedCode": "DUPLICATE_AGENT"
+  },
+  {
+    "name": "duplicate-attachment",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/attachments/3",
+        "value": {
+          "deviceId": "D1",
+          "updaterId": "P1",
+          "agentId": "A1",
+          "capability": {
+            "deviceId": "D1",
+            "capabilities": [
+              "explicit-rollback-v1"
+            ],
+            "registrationEventId": "device-registration-D1"
+          }
+        }
+      }
+    ],
+    "expectedCode": "DUPLICATE_ATTACHMENT"
+  },
+  {
+    "name": "orphan-attachment",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/attachments/0/agentId",
+        "value": "absent"
+      }
+    ],
+    "expectedCode": "ORPHAN_ATTACHMENT"
+  },
+  {
+    "name": "agent-device-identity",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/attachments/0/deviceId",
+        "value": "A1"
+      }
+    ],
+    "expectedCode": "IDENTITY_COLLISION"
+  },
+  {
+    "name": "shared-updater",
+    "check": "topology",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/attachments/1/updaterId",
+        "value": "P1"
+      }
+    ],
+    "expectedCode": "DUPLICATE_UPDATER"
+  },
+  {
+    "name": "observation-forged-self",
+    "check": "observation",
+    "base": "agent-observation.json",
+    "changes": [
+      {
+        "path": "/agent/agentId",
+        "value": "A3"
+      }
+    ],
+    "expectedCode": "UNAUTHORIZED_PEER"
+  },
+  {
+    "name": "observation-foreign-attachment",
+    "check": "observation",
+    "base": "agent-observation.json",
+    "changes": [
+      {
+        "path": "/directDevices/0",
+        "value": {
+          "deviceId": "D1",
+          "updaterId": "P1",
+          "agentId": "A1",
+          "capability": {
+            "deviceId": "D1",
+            "capabilities": [
+              "explicit-rollback-v1"
+            ],
+            "registrationEventId": "device-registration-D1"
+          }
+        }
+      }
+    ],
+    "expectedCode": "OBSERVATION_SCOPE"
+  },
+  {
+    "name": "route-hash",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/routeVersion",
+        "value": 2
+      }
+    ],
+    "expectedCode": "ROUTE_HASH",
+    "rehash": false
+  },
+  {
+    "name": "route-order",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/orderedAgentIds",
+        "value": [
+          "A1",
+          "A3",
+          "A2"
+        ]
+      }
+    ],
+    "expectedCode": "WRONG_LEAF",
+    "rehash": true
+  },
+  {
+    "name": "wrong-root",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/orderedAgentIds",
+        "value": [
+          "A2",
+          "A3"
+        ]
+      }
+    ],
+    "expectedCode": "WRONG_ROOT",
+    "rehash": true
+  },
+  {
+    "name": "wrong-leaf",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/targetUpdaterId",
+        "value": "P2"
+      }
+    ],
+    "expectedCode": "WRONG_LEAF",
+    "rehash": true
+  },
+  {
+    "name": "empty-route",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/orderedAgentIds",
+        "value": []
+      }
+    ],
+    "expectedCode": "SCHEMA",
+    "rehash": false
+  },
+  {
+    "name": "duplicate-route",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/orderedAgentIds",
+        "value": [
+          "A1",
+          "A1",
+          "A3"
+        ]
+      }
+    ],
+    "expectedCode": "SCHEMA",
+    "rehash": false
+  },
+  {
+    "name": "hop-overflow",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/hopContext/hopIndex",
+        "value": 4
+      }
+    ],
+    "expectedCode": "HOP_OVERFLOW",
+    "rehash": false
+  },
+  {
+    "name": "wrong-sender",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/hopContext/senderId",
+        "value": "A2"
+      }
+    ],
+    "expectedCode": "UNAUTHORIZED_PEER",
+    "rehash": false
+  },
+  {
+    "name": "wrong-receiver",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/hopContext/receiverId",
+        "value": "A2"
+      }
+    ],
+    "expectedCode": "WRONG_RECEIVER",
+    "rehash": false
+  },
+  {
+    "name": "non-neighbor",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/hopContext/hopIndex",
+        "value": 1
+      }
+    ],
+    "expectedCode": "INVALID_ADJACENCY",
+    "rehash": false
+  },
+  {
+    "name": "stale-route",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/topologyVersion",
+        "value": 2
+      }
+    ],
+    "expectedCode": "STALE_ROUTE",
+    "rehash": true
+  },
+  {
+    "name": "missing-target",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/targetDeviceId",
+        "value": "absent"
+      },
+      {
+        "path": "/routeSnapshot/targetDeviceId",
+        "value": "absent"
+      }
+    ],
+    "expectedCode": "MISSING_TARGET",
+    "rehash": true
+  },
+  {
+    "name": "unknown-runtime",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/contractVersion",
+        "value": "2.1"
+      }
+    ],
+    "expectedCode": "SCHEMA",
+    "rehash": false
+  },
+  {
+    "name": "wrong-capability",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/requiredCapability",
+        "value": "explicit-rollback-v1"
+      }
+    ],
+    "expectedCode": "SCHEMA",
+    "rehash": false
+  },
+  {
+    "name": "target-mismatch",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/targetDeviceId",
+        "value": "D2"
+      }
+    ],
+    "expectedCode": "TARGET_MISMATCH",
+    "rehash": false
+  },
+  {
+    "name": "U-discontinuity",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/updaterJobId",
+        "value": "U-new"
+      }
+    ],
+    "expectedCode": "UPDATE_IDENTITY",
+    "rehash": false
+  },
+  {
+    "name": "updater-wrong-U",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/payload/jobId",
+        "value": "R3"
+      }
+    ],
+    "expectedCode": "UPDATER_PROJECTION",
+    "rehash": false
+  },
+  {
+    "name": "capability-missing",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/capabilitySnapshot/agents/1/capabilities",
+        "value": [
+          "explicit-rollback-v1"
+        ]
+      }
+    ],
+    "expectedCode": "CAPABILITY_MISMATCH",
+    "rehash": true
+  },
+  {
+    "name": "updater-evidence-missing",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/capabilitySnapshot/updater/capabilities",
+        "value": []
+      }
+    ],
+    "expectedCode": "CAPABILITY_MISMATCH",
+    "rehash": true
+  },
+  {
+    "name": "expiry-window",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/expiresAtUtc",
+        "value": "2026-09-15T00:00:00Z"
+      }
+    ],
+    "expectedCode": "EXPIRY_WINDOW",
+    "rehash": false
+  },
+  {
+    "name": "same-job-payload",
+    "check": "replay",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/payload/packageSha256",
+        "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    ],
+    "expectedCode": "IDEMPOTENCY_CONFLICT"
+  },
+  {
+    "name": "same-job-correlation",
+    "check": "replay",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/operationCorrelationId",
+        "value": "40000000-0000-4000-8000-000000000003"
+      }
+    ],
+    "expectedCode": "IDEMPOTENCY_CONFLICT"
+  },
+  {
+    "name": "same-job-expiry",
+    "check": "replay",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/expiresAtUtc",
+        "value": "2026-09-15T00:12:00Z"
+      }
+    ],
+    "expectedCode": "IDEMPOTENCY_CONFLICT"
+  },
+  {
+    "name": "R-equals-U",
+    "check": "command",
+    "base": "n-hop-rollback.json",
+    "changes": [
+      {
+        "path": "/serverCommandJobId",
+        "value": "U3"
+      }
+    ],
+    "expectedCode": "ROLLBACK_IDENTITY"
+  },
+  {
+    "name": "R-projects-R",
+    "check": "command",
+    "base": "n-hop-rollback.json",
+    "changes": [
+      {
+        "path": "/payload/jobId",
+        "value": "R3"
+      }
+    ],
+    "expectedCode": "UPDATER_PROJECTION"
+  },
+  {
+    "name": "R-correlation-reuses-U",
+    "check": "command",
+    "base": "n-hop-rollback.json",
+    "changes": [
+      {
+        "path": "/operationCorrelationId",
+        "value": "10000000-0000-4000-8000-000000000003"
+      }
+    ],
+    "expectedCode": "ROLLBACK_CORRELATION"
+  },
+  {
+    "name": "R-route-revision",
+    "check": "command",
+    "base": "n-hop-rollback.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/routeVersion",
+        "value": 2
+      }
+    ],
+    "expectedCode": "ROLLBACK_ROUTE",
+    "rehash": true
+  },
+  {
+    "name": "R-package-fields",
+    "check": "command",
+    "base": "n-hop-rollback.json",
+    "changes": [
+      {
+        "path": "/payload/packageUrl",
+        "value": "https://packages.example.test/wrong"
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "relay-allocates-sequence",
+    "check": "root",
+    "base": "root-status.json",
+    "changes": [
+      {
+        "path": "/rootAgentId",
+        "value": "A2"
+      }
+    ],
+    "expectedCode": "ROOT_SEQUENCE_OWNER"
+  },
+  {
+    "name": "sequence-gap",
+    "check": "rootReplay",
+    "base": "root-status.json",
+    "changes": [
+      {
+        "path": "/sequence",
+        "value": 2
+      }
+    ],
+    "expectedCode": "SEQUENCE_GAP"
+  },
+  {
+    "name": "sequence-conflict",
+    "check": "rootReplay",
+    "base": "root-status.json",
+    "changes": [
+      {
+        "path": "/event/message",
+        "value": "altered"
+      }
+    ],
+    "expectedCode": "SEQUENCE_CONFLICT"
+  },
+  {
+    "name": "event-conflict",
+    "check": "eventReplay",
+    "base": "routed-status-event.json",
+    "changes": [
+      {
+        "path": "/message",
+        "value": "altered"
+      }
+    ],
+    "expectedCode": "STATUS_EVENT_CONFLICT"
+  },
+  {
+    "name": "status-correlation",
+    "check": "status",
+    "base": "routed-status-event.json",
+    "changes": [
+      {
+        "path": "/operationCorrelationId",
+        "value": "10000000-0000-4000-8000-000000000003"
+      }
+    ],
+    "expectedCode": "STATUS_IDENTITY"
+  },
+  {
+    "name": "status-target",
+    "check": "status",
+    "base": "routed-status-event.json",
+    "changes": [
+      {
+        "path": "/targetDeviceId",
+        "value": "D2"
+      }
+    ],
+    "expectedCode": "TARGET_MISMATCH"
+  },
+  {
+    "name": "rollback-completed",
+    "check": "status",
+    "base": "routed-status-event.json",
+    "changes": [
+      {
+        "path": "/state",
+        "value": "completed"
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "null-version-pair",
+    "check": "root",
+    "base": "root-status.json",
+    "changes": [
+      {
+        "path": "/event/versionEvidence",
+        "value": {
+          "availability": "unavailable",
+          "fromVersion": null,
+          "targetVersion": "1.0.0"
+        }
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "unavailable-success",
+    "check": "root",
+    "base": "root-status.json",
+    "changes": [
+      {
+        "path": "/event/versionEvidence",
+        "value": {
+          "availability": "unavailable",
+          "fromVersion": null,
+          "targetVersion": null
+        }
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "evidence-forged-leaf",
+    "check": "projection",
+    "base": "projected-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/authorizedLeafAgentId",
+        "value": "A2"
+      }
+    ],
+    "expectedCode": "EVIDENCE_LEAF"
+  },
+  {
+    "name": "evidence-forged-R",
+    "check": "projection",
+    "base": "projected-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/serverCommandJobId",
+        "value": "U3"
+      }
+    ],
+    "expectedCode": "EVIDENCE_IDENTITY"
+  },
+  {
+    "name": "evidence-forged-route",
+    "check": "projection",
+    "base": "projected-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/routeSnapshotHash",
+        "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "expectedCode": "EVIDENCE_ROUTE"
+  },
+  {
+    "name": "raw-hash",
+    "check": "raw",
+    "base": "raw-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/journalSequence",
+        "value": 10
+      }
+    ],
+    "expectedCode": "EVIDENCE_HASH"
+  },
+  {
+    "name": "physical-runtime-provenance",
+    "check": "raw",
+    "base": "raw-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/links/runtimeVersion",
+        "value": "9.0.0"
+      }
+    ],
+    "expectedCode": "RUNTIME_PROVENANCE",
+    "rehashSource": true
+  },
+  {
+    "name": "physical-time",
+    "check": "raw",
+    "base": "raw-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/completedAtUtc",
+        "value": "2026-09-15T00:00:00Z"
+      }
+    ],
+    "expectedCode": "EVIDENCE_TIME",
+    "rehashSource": true
+  },
+  {
+    "name": "ordinal-gap",
+    "check": "counts",
+    "base": "physical-operations.json",
+    "changes": [
+      {
+        "path": "/0/operationAttemptOrdinal",
+        "value": 2
+      },
+      {
+        "path": "/1/operationAttemptOrdinal",
+        "value": 2
+      },
+      {
+        "path": "/2/operationAttemptOrdinal",
+        "value": 2
+      }
+    ],
+    "expectedCode": "ORDINAL_GAP",
+    "rehashSources": true
+  },
+  {
+    "name": "phase-replay-conflict",
+    "check": "counts",
+    "base": "physical-operations.json",
+    "changes": [
+      {
+        "path": "/9",
+        "value": {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "invoked",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "36e9ccac9f9faee534249d4477923e41ba714e1676ae8b5ba750ac1d4f193bf5"
+          },
+          "journalSequence": 1,
+          "links": {
+            "journalRecordId": "other-record",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "notStarted",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        }
+      }
+    ],
+    "expectedCode": "EVIDENCE_PHASE_CONFLICT",
+    "rehashSources": true
+  },
+  {
+    "name": "journal-sequence-reuse",
+    "check": "counts",
+    "base": "physical-operations.json",
+    "changes": [
+      {
+        "path": "/1/journalSequence",
+        "value": 1
+      }
+    ],
+    "expectedCode": "JOURNAL_SEQUENCE_CONFLICT",
+    "rehashSources": true
+  },
+  {
+    "name": "missing-activation",
+    "check": "counts",
+    "base": "physical-operations.json",
+    "changes": [
+      {
+        "path": "/1",
+        "value": {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "invoked",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+          },
+          "journalSequence": 1,
+          "links": {
+            "journalRecordId": "journal-record-1",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "notStarted",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        }
+      }
+    ],
+    "expectedCode": "MISSING_ACTIVATION"
+  },
+  {
+    "name": "forward-before-durable",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/0/action",
+        "value": "forward"
+      },
+      {
+        "path": "/steps/0/atUtc",
+        "value": "2026-09-15T00:00:02Z"
+      }
+    ],
+    "expectedCode": "WRITE_BEFORE_FORWARD"
+  },
+  {
+    "name": "ack-before-durable",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/0/action",
+        "value": "ack"
+      }
+    ],
+    "expectedCode": "WRITE_BEFORE_ACK"
+  },
+  {
+    "name": "restart-drops-obligation",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/4/retained",
+        "value": []
+      }
+    ],
+    "expectedCode": "RESTART_DURABILITY"
+  },
+  {
+    "name": "unknown-404-terminal",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/6/action",
+        "value": "terminalize"
+      }
+    ],
+    "expectedCode": "UNKNOWN_TERMINAL"
+  },
+  {
+    "name": "replay-without-query",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/5/action",
+        "value": "ack"
+      }
+    ],
+    "expectedCode": "QUERY_BEFORE_REPLAY"
+  },
+  {
+    "name": "expired-first-submit",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/2/atUtc",
+        "value": "2026-09-15T00:11:00Z"
+      }
+    ],
+    "expectedCode": "EXPIRED_FIRST_SUBMISSION"
+  },
+  {
+    "name": "replay-payload-change",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/6/fingerprint",
+        "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "expectedCode": "REPLAY_PAYLOAD"
+  },
+  {
+    "name": "trace-relay-sequence",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/34/actor",
+        "value": "A2"
+      }
+    ],
+    "expectedCode": "ROOT_SEQUENCE_OWNER"
+  },
+  {
+    "name": "status-key-retry-change",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/35/idempotencyKey",
+        "value": "status:U3:1"
+      }
+    ],
+    "expectedCode": "STATUS_KEY"
+  },
+  {
+    "name": "status-payload-retry-change",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/35/fingerprint",
+        "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "expectedCode": "STATUS_WRITE_BEFORE_SEND"
+  },
+  {
+    "name": "route-over-limit",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/orderedAgentIds",
+        "value": [
+          "A0",
+          "A1",
+          "A2",
+          "A3",
+          "A4",
+          "A5",
+          "A6",
+          "A7",
+          "A8",
+          "A9",
+          "A10",
+          "A11",
+          "A12",
+          "A13",
+          "A14",
+          "A15",
+          "A16",
+          "A17",
+          "A18",
+          "A19",
+          "A20",
+          "A21",
+          "A22",
+          "A23",
+          "A24",
+          "A25",
+          "A26",
+          "A27",
+          "A28",
+          "A29",
+          "A30",
+          "A31",
+          "A32"
+        ]
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "job-agent-global-collision",
+    "check": "command",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/serverCommandJobId",
+        "value": "A4"
+      },
+      {
+        "path": "/updaterJobId",
+        "value": "A4"
+      },
+      {
+        "path": "/payload/jobId",
+        "value": "A4"
+      }
+    ],
+    "expectedCode": "IDENTITY_COLLISION"
+  },
+  {
+    "name": "current-agent-capability-removed",
+    "check": "gate",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/agents/1/capabilities",
+        "value": [
+          "explicit-rollback-v1"
+        ]
+      }
+    ],
+    "expectedCode": "CAPABILITY_MISMATCH"
+  },
+  {
+    "name": "current-device-rollback-capability-removed",
+    "check": "gate",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/attachments/2/capability/capabilities",
+        "value": []
+      }
+    ],
+    "expectedCode": "ROLLBACK_CAPABILITY"
+  },
+  {
+    "name": "current-adjacency-changed",
+    "check": "gate",
+    "base": "topology.json",
+    "changes": [
+      {
+        "path": "/parentLinks/1/parentAgentId",
+        "value": "A1"
+      }
+    ],
+    "expectedCode": "STALE_ROUTE"
+  },
+  {
+    "name": "evidence-page-omission",
+    "check": "page",
+    "base": "raw-evidence-page.json",
+    "changes": [
+      {
+        "path": "/records/1",
+        "value": {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "invoked",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+          },
+          "journalSequence": 1,
+          "links": {
+            "journalRecordId": "journal-record-1",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "notStarted",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        }
+      }
+    ],
+    "expectedCode": "EVIDENCE_PAGE_ORDER"
+  },
+  {
+    "name": "evidence-cursor-skips",
+    "check": "page",
+    "base": "raw-evidence-page.json",
+    "changes": [
+      {
+        "path": "/afterJournalSequence",
+        "value": 3
+      }
+    ],
+    "expectedCode": "EVIDENCE_CURSOR"
+  },
+  {
+    "name": "evidence-truncated-claim-complete",
+    "check": "page",
+    "base": "raw-evidence-page.json",
+    "changes": [
+      {
+        "path": "/retentionComplete",
+        "value": false
+      }
+    ],
+    "expectedCode": "EVIDENCE_RETENTION"
+  },
+  {
+    "name": "evidence-watermark-excludes-record",
+    "check": "page",
+    "base": "raw-evidence-page.json",
+    "changes": [
+      {
+        "path": "/journalHighWatermark",
+        "value": 8
+      }
+    ],
+    "expectedCode": "EVIDENCE_PAGE_ORDER"
+  },
+  {
+    "name": "pre-forward-version-fabrication",
+    "check": "updateFailure",
+    "base": "update-before-forward-failure.json",
+    "changes": [
+      {
+        "path": "/versionEvidence/fromVersion",
+        "value": "1.0.0"
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "pre-forward-unavailable-not-legacy-R",
+    "check": "updateFailure",
+    "base": "update-before-forward-failure.json",
+    "changes": [
+      {
+        "path": "/versionEvidence/availability",
+        "value": "unavailable"
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "pre-forward-authority",
+    "check": "updateFailure",
+    "base": "update-before-forward-failure.json",
+    "changes": [
+      {
+        "path": "/failureEvidence/agentId",
+        "value": "A4"
+      }
+    ],
+    "expectedCode": "FAILURE_EVIDENCE_AUTHORITY"
+  },
+  {
+    "name": "pre-forward-stage-unknown",
+    "check": "updateFailure",
+    "base": "update-before-forward-failure.json",
+    "changes": [
+      {
+        "path": "/failureEvidence/stage",
+        "value": "unknown"
+      }
+    ],
+    "expectedCode": "SCHEMA"
+  },
+  {
+    "name": "physical-confirmed-without-source",
+    "check": "raw",
+    "base": "raw-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/executionEvidence/sourceRecordId",
+        "value": null
+      }
+    ],
+    "expectedCode": "EXECUTION_PROVENANCE",
+    "rehashSource": true
+  },
+  {
+    "name": "physical-success-with-unknown-execution",
+    "check": "raw",
+    "base": "raw-operation-evidence.json",
+    "changes": [
+      {
+        "path": "/executionEvidence",
+        "value": {
+          "state": "unknown",
+          "sourceRecordId": null,
+          "observedAtUtc": null
+        }
+      }
+    ],
+    "expectedCode": "EXECUTION_UNPROVEN",
+    "rehashSource": true
+  },
+  {
+    "name": "physical-before-durable-acceptance",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/0",
+        "value": {
+          "action": "physical",
+          "record": {
+            "contractVersion": "2.0",
+            "updaterId": "P3",
+            "updaterJobId": "U3",
+            "authorizedLeafAgentId": "A3",
+            "operationKind": "activation",
+            "operationPhase": "invoked",
+            "operationAttemptOrdinal": 1,
+            "startedAtUtc": "2026-09-15T00:01:00Z",
+            "completedAtUtc": null,
+            "result": "inProgress",
+            "evidenceSource": {
+              "kind": "updaterJournal",
+              "journalId": "journal-P3-1",
+              "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+            },
+            "journalSequence": 1,
+            "links": {
+              "journalRecordId": "journal-record-1",
+              "markerVersion": "1.2.0",
+              "symlinkTarget": "/releases/1.2.0",
+              "runtimeVersion": "1.2.0",
+              "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "executionEvidence": {
+              "state": "notStarted",
+              "sourceRecordId": null,
+              "observedAtUtc": null
+            }
+          },
+          "actor": "A3",
+          "job": "U3",
+          "projection": {
+            "serverCommandJobId": "U3",
+            "originalUpdateJobId": null,
+            "updaterJobId": "U3",
+            "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+            "authorizedLeafAgentId": "A3",
+            "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+            "source": {
+              "contractVersion": "2.0",
+              "updaterId": "P3",
+              "updaterJobId": "U3",
+              "authorizedLeafAgentId": "A3",
+              "operationKind": "activation",
+              "operationPhase": "invoked",
+              "operationAttemptOrdinal": 1,
+              "startedAtUtc": "2026-09-15T00:01:00Z",
+              "completedAtUtc": null,
+              "result": "inProgress",
+              "evidenceSource": {
+                "kind": "updaterJournal",
+                "journalId": "journal-P3-1",
+                "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+              },
+              "journalSequence": 1,
+              "links": {
+                "journalRecordId": "journal-record-1",
+                "markerVersion": "1.2.0",
+                "symlinkTarget": "/releases/1.2.0",
+                "runtimeVersion": "1.2.0",
+                "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              },
+              "executionEvidence": {
+                "state": "notStarted",
+                "sourceRecordId": null,
+                "observedAtUtc": null
+              }
+            }
+          }
+        }
+      }
+    ],
+    "expectedCode": "PHYSICAL_WITHOUT_ACCEPTANCE"
+  },
+  {
+    "name": "trace-forward-wrong-neighbor",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/2/hopContext/receiverId",
+        "value": "A3"
+      }
+    ],
+    "expectedCode": "INVALID_ADJACENCY"
+  },
+  {
+    "name": "trace-forward-key-change",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/2/idempotencyKey",
+        "value": "command:other"
+      }
+    ],
+    "expectedCode": "COMMAND_KEY"
+  },
+  {
+    "name": "trace-relay-sends-server-status",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/35/actor",
+        "value": "A2"
+      }
+    ],
+    "expectedCode": "ROOT_SEQUENCE_OWNER"
+  },
+  {
+    "name": "server-ack-while-outage",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/38/action",
+        "value": "serverOutage"
+      }
+    ],
+    "expectedCode": "ACK_DURING_OUTAGE"
+  },
+  {
+    "name": "evidence-valid-order-omission",
+    "check": "page",
+    "base": "raw-evidence-page.json",
+    "changes": [
+      {
+        "path": "/records",
+        "value": [
+          {
+            "contractVersion": "2.0",
+            "updaterId": "P3",
+            "updaterJobId": "U3",
+            "authorizedLeafAgentId": "A3",
+            "operationKind": "activation",
+            "operationPhase": "invoked",
+            "operationAttemptOrdinal": 1,
+            "startedAtUtc": "2026-09-15T00:01:00Z",
+            "completedAtUtc": null,
+            "result": "inProgress",
+            "evidenceSource": {
+              "kind": "updaterJournal",
+              "journalId": "journal-P3-1",
+              "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+            },
+            "journalSequence": 1,
+            "links": {
+              "journalRecordId": "journal-record-1",
+              "markerVersion": "1.2.0",
+              "symlinkTarget": "/releases/1.2.0",
+              "runtimeVersion": "1.2.0",
+              "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "executionEvidence": {
+              "state": "notStarted",
+              "sourceRecordId": null,
+              "observedAtUtc": null
+            }
+          }
+        ]
+      }
+    ],
+    "expectedCode": "EVIDENCE_COVERAGE"
+  },
+  {
+    "name": "migration-missing-agent",
+    "check": "migration",
+    "base": "legacy-migration.json",
+    "changes": [
+      {
+        "path": "/source/agentId",
+        "value": null
+      }
+    ],
+    "expectedCode": "MIGRATION_EVIDENCE"
+  },
+  {
+    "name": "migration-route-guess",
+    "check": "migration",
+    "base": "legacy-migration.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot/orderedAgentIds",
+        "value": [
+          "A4"
+        ]
+      }
+    ],
+    "expectedCode": "MIGRATION_ROUTE"
+  },
+  {
+    "name": "migration-job-rekey",
+    "check": "migration",
+    "base": "legacy-migration.json",
+    "changes": [
+      {
+        "path": "/projectedJobs/0/serverCommandJobId",
+        "value": "U-new"
+      }
+    ],
+    "expectedCode": "MIGRATION_IDENTITY"
+  },
+  {
+    "name": "pre-forward-after-submission",
+    "check": "failureReceipt",
+    "base": "never-forwarded-receipt.json",
+    "changes": [
+      {
+        "path": "/downstreamEverSubmitted",
+        "value": true
+      }
+    ],
+    "expectedCode": "FAILURE_AFTER_SUBMISSION"
+  },
+  {
+    "name": "receipt-fingerprint",
+    "check": "receipt",
+    "base": "command-receipt.json",
+    "changes": [
+      {
+        "path": "/semanticFingerprint",
+        "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    ],
+    "expectedCode": "RECEIPT_IDENTITY"
+  },
+  {
+    "name": "same-job-valid-target-route-conflict",
+    "check": "replay",
+    "base": "n-hop-update.json",
+    "changes": [
+      {
+        "path": "/routeSnapshot",
+        "value": {
+          "routeId": "route-D2",
+          "routeVersion": 1,
+          "topologyVersion": 1,
+          "serverId": "server-1",
+          "targetDeviceId": "D2",
+          "targetUpdaterId": "P2",
+          "orderedAgentIds": [
+            "A1",
+            "A2"
+          ],
+          "capabilitySnapshot": {
+            "agents": [
+              {
+                "agentId": "A1",
+                "contractVersion": "2.0",
+                "capabilities": [
+                  "explicit-rollback-v1",
+                  "hierarchical-relay-v1"
+                ],
+                "registrationEventId": "registration-A1"
+              },
+              {
+                "agentId": "A2",
+                "contractVersion": "2.0",
+                "capabilities": [
+                  "explicit-rollback-v1",
+                  "hierarchical-relay-v1"
+                ],
+                "registrationEventId": "registration-A2"
+              }
+            ],
+            "updater": {
+              "updaterId": "P2",
+              "contractVersion": "2.0",
+              "capabilities": [
+                "physical-operation-evidence-v1"
+              ],
+              "evidenceId": "capability-P2"
+            },
+            "device": {
+              "deviceId": "D2",
+              "capabilities": [
+                "explicit-rollback-v1"
+              ],
+              "registrationEventId": "device-registration-D2"
+            }
+          },
+          "createdAtUtc": "2026-09-15T00:00:00Z",
+          "routeSnapshotHash": "3f665fd6dc9d3f6a2d1a1265ba34bd01562f06a05a9dd1921737fab6f918bf61"
+        }
+      },
+      {
+        "path": "/targetDeviceId",
+        "value": "D2"
+      }
+    ],
+    "expectedCode": "IDEMPOTENCY_CONFLICT",
+    "rehash": true
+  },
+  {
+    "name": "same-event-new-sequence",
+    "check": "rootReplay",
+    "base": "root-status.json",
+    "changes": [
+      {
+        "path": "/sequence",
+        "value": 1
+      }
+    ],
+    "expectedCode": "EVENT_SEQUENCE_REASSIGNMENT"
+  },
+  {
+    "name": "retry-fabricates-physical-invocation",
+    "check": "trace",
+    "base": "durable-transcript.json",
+    "changes": [
+      {
+        "path": "/steps/79",
+        "value": {
+          "action": "physical",
+          "record": {
+            "contractVersion": "2.0",
+            "updaterId": "P3",
+            "updaterJobId": "U3",
+            "authorizedLeafAgentId": "A3",
+            "operationKind": "activation",
+            "operationPhase": "invoked",
+            "operationAttemptOrdinal": 2,
+            "startedAtUtc": "2026-09-15T00:01:00Z",
+            "completedAtUtc": null,
+            "result": "inProgress",
+            "evidenceSource": {
+              "kind": "updaterJournal",
+              "journalId": "journal-P3-1",
+              "recordSha256": "030e07cecbaae1d746361ab711f03b3ca2d5537ed0d9004f49fce7093578fc24"
+            },
+            "journalSequence": 10,
+            "links": {
+              "journalRecordId": "extra-invocation",
+              "markerVersion": "1.2.0",
+              "symlinkTarget": "/releases/1.2.0",
+              "runtimeVersion": "1.2.0",
+              "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "executionEvidence": {
+              "state": "notStarted",
+              "sourceRecordId": null,
+              "observedAtUtc": null
+            }
+          },
+          "actor": "A3",
+          "job": "U3",
+          "projection": {
+            "serverCommandJobId": "U3",
+            "originalUpdateJobId": null,
+            "updaterJobId": "U3",
+            "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+            "authorizedLeafAgentId": "A3",
+            "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+            "source": {
+              "contractVersion": "2.0",
+              "updaterId": "P3",
+              "updaterJobId": "U3",
+              "authorizedLeafAgentId": "A3",
+              "operationKind": "activation",
+              "operationPhase": "invoked",
+              "operationAttemptOrdinal": 2,
+              "startedAtUtc": "2026-09-15T00:01:00Z",
+              "completedAtUtc": null,
+              "result": "inProgress",
+              "evidenceSource": {
+                "kind": "updaterJournal",
+                "journalId": "journal-P3-1",
+                "recordSha256": "030e07cecbaae1d746361ab711f03b3ca2d5537ed0d9004f49fce7093578fc24"
+              },
+              "journalSequence": 10,
+              "links": {
+                "journalRecordId": "extra-invocation",
+                "markerVersion": "1.2.0",
+                "symlinkTarget": "/releases/1.2.0",
+                "runtimeVersion": "1.2.0",
+                "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              },
+              "executionEvidence": {
+                "state": "notStarted",
+                "sourceRecordId": null,
+                "observedAtUtc": null
+              }
+            }
+          }
+        }
+      }
+    ],
+    "expectedCode": "TRACE_COUNT_MISMATCH"
+  }
+]

@@ -4,6 +4,21 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-15
+
+### Added
+
+- Define capability-gated ViaAgent tree/forest registration, immutable ordered route snapshots and cross-language SHA-256 vectors, authenticated adjacent hops, stable end-to-end correlation, routed U/R commands and durable replay/uncertainty rules.
+- Add Agent command/status reconciliation, root-only status sequence, dedicated Server history with R→U and unavailable version evidence, and explicit never-forwarded U failure evidence without changing legacy status schemas.
+- Add topology-agnostic raw Updater evidence reads and Leaf/Root projections with immutable ordinals/phases, journal/runtime provenance, pagination coverage and explicit unknown versus confirmed physical execution.
+- Add single-hop, branching and N-hop fixtures, durable restart/response-loss/outage transcripts, exact-reason semantic negative cases, compatibility/migration/security guidance and consumer handoff to Server #8/#18, Agent #9 and Updater #55.
+
+### Compatibility decision
+
+- Repository minor version advances to 2.2.0; runtime remains 2.0 under the existing additive-endpoint precedent. Existing registration, pending commands, Agent/Updater payloads, twelve states, U/R rollback, status sequence/expiry and legacy history schemas retain their behavior.
+- Require exact Agent-scoped hierarchical-relay-v1 and Updater physical-operation-evidence-v1 for new routed dispatch; existing explicit-rollback-v1 remains device-scoped. Unknown/missing support fails closed.
+- No consumer runtime, deployment, tag, release, merge or production/HIL qualification is included.
+
 ## [2.1.1] - 2026-09-06
 
 ### Fixed

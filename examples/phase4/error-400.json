@@ -1,0 +1,9 @@
+{
+  "type": "urn:slamcore:error:validation-failed",
+  "title": "Validation Failed",
+  "status": 400,
+  "code": "VALIDATION_FAILED",
+  "detail": "Request rejected; see normative error semantics.",
+  "correlationId": "30000000-0000-4000-8000-000000000003",
+  "retryable": false
+}
