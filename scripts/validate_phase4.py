@@ -52,15 +52,18 @@ def check_case(check, value, base):
     elif check == 'counts':
         p.evidence_counts(value)
     elif check == 'updateFailure':
-        p.status(value, update, ('agent','A1'), ('server','server-1'),failure_receipt=load('never-forwarded-receipt.json'))
+        p.status(value, update, ('agent','A1'), ('server','server-1'))
     elif check == 'migration':
         p.legacy_migration(value)
     elif check == 'receipt':
         p.receipt(value)
     elif check == 'failureReceipt':
-        p.status(load('update-before-forward-failure.json'),update,('agent','A1'),('server','server-1'),failure_receipt=value)
+        event=load('update-before-forward-failure.json')
+        event['failureEvidence']['originReceipt']=value
+        event['failureEvidence']['originReceiptHash']=p.digest(value)
+        p.status(event,update,('agent','A1'),('server','server-1'))
     elif check == 'page':
-        p.evidence_pages([value],load('raw-evidence-page.json')['records'])
+        p.evidence_pages([value],load('raw-evidence-page.json')['records'],requests=[p.evidence_request(value)])
     elif check == 'gate':
         p.dispatch_gate(load('n-hop-rollback.json'),value)
     elif check == 'trace':
@@ -79,7 +82,7 @@ def run(report_error):
 
     mappings = {name+'.json': name for name in ['agent-observation','topology','route-snapshot','routed-status-event','root-status','history-page','pending-page','command-receipt','raw-operation-evidence','projected-operation-evidence','raw-evidence-page','evidence-page','event-page','error-response']}
     mappings.update({top+'-'+kind+'.json':'routed-command' for top in ['single-hop','branching','n-hop'] for kind in ['update','rollback']})
-    mappings.update({'update-before-forward-failure.json':'routed-status-event','intent-only-evidence-page.json':'raw-evidence-page','never-forwarded-receipt.json':'command-receipt'})
+    mappings.update({'update-before-forward-failure.json':'routed-status-event','intent-only-evidence-page.json':'raw-evidence-page','never-forwarded-receipt.json':'command-receipt','leaf-before-forward-failure.json':'routed-status-event','never-forwarded-history.json':'history-page'})
     for name, schema in mappings.items():
         test(name, lambda n=name,s=schema: p.shape(s, load(n)))
         counts['schema'] += 1
@@ -170,12 +173,12 @@ def run(report_error):
         except p.Violation as exc:assert exc.code=='DUPLICATE_JSON_KEY'
         else:raise AssertionError('duplicate JSON key accepted')
         row=dict(event=load('update-before-forward-failure.json'),sequence=0,rootAgentId='A1')
-        p.root_status(row,c,failure_receipt=load('never-forwarded-receipt.json'))
+        p.root_status(row,c)
     test('independent peer duplicate keys and pre-forward root history',trust_and_canonical);counts['semantic']+=1
     def explicit_uncertainty():
         page=load('intent-only-evidence-page.json')
-        result=p.evidence_pages([page],page['records'])
-        assert result['proven'] is False
+        result=p.evidence_pages([page],page['records'],requests=[p.evidence_request(page,initial=True)])
+        assert result['snapshotProven'] is False
         assert result['counts']['activation']['activationStarted']==1
         assert result['counts']['activation']['confirmedPhysicalStarts']==0
         assert result['counts']['activation']['unresolvedPhysicalStarts']==1
@@ -186,12 +189,12 @@ def run(report_error):
         a=copy.deepcopy(whole);b=copy.deepcopy(whole)
         a['records']=whole['records'][:3];a['complete']=False;a['nextAfterJournalSequence']=3
         b['records']=whole['records'][3:];b['afterJournalSequence']=3
-        result=p.evidence_pages([a,b],whole['records'])
-        assert result['proven'] and result['counts']['activation']['activationStarted']==1
+        result=p.evidence_pages([a,b],whole['records'],requests=[p.evidence_request(a,initial=True),p.evidence_request(b)])
+        assert result['snapshotProven'] and result['counts']['activation']['activationStarted']==1
         partial=copy.deepcopy(whole);partial['retentionComplete']=False;partial['complete']=False
-        assert not p.evidence_pages([partial],whole['records'])['proven']
+        assert not p.evidence_pages([partial],whole['records'],requests=[p.evidence_request(partial,initial=True)])['snapshotProven']
         projection=load('evidence-page.json')
-        assert p.evidence_pages([projection],projection['records'],True)['counts']['explicitRollback']['invoked']==1
+        assert p.evidence_pages([projection],projection['records'],True,requests=[p.evidence_request(projection,True,True)])['counts']['explicitRollback']['invoked']==1
     test('raw and projected evidence pagination retention',pagination);counts['semantic']+=1
     def compatibility():
         for name in ['single-hop-update','single-hop-rollback','n-hop-update','n-hop-rollback']:
@@ -247,6 +250,11 @@ def run(report_error):
                 assert '#/components/parameters/CorrelationId' in refs,(path,'correlation')
                 assert '#/components/parameters/ContractVersion' in refs
                 assert '#/components/parameters/'+('EvidenceCapability' if owner=='Updater' else 'RelayCapability') in refs
+                if path.endswith('/evidence'):
+                    for name,query_name in [('EvidenceJournalId','journalId'),('EvidenceHighWatermark','journalHighWatermark')]:
+                        assert '#/components/parameters/'+name in refs
+                        parameter=doc['components']['parameters'][name]
+                        assert parameter['name']==query_name and parameter['in']=='query'
                 if method=='post':assert '#/components/parameters/IdempotencyKey' in refs,(path,'idempotency')
                 for container in [operation.get('requestBody',{}),*operation['responses'].values()]:
                     for media in container.get('content',{}).values():
@@ -271,5 +279,7 @@ def run(report_error):
             parameter=doc['components']['parameters'][name]
             assert parameter['required'] is True and parameter['schema']['const']==value
     test('OpenAPI references headers examples',openapi)
+    from validate_phase4_review import run as review_regressions
+    counts['reviewRegressions'] = review_regressions(report_error)
     print('Phase 4 validation counts: '+json.dumps(counts,sort_keys=True))
     return counts

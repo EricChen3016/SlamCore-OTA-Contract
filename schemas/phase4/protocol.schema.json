@@ -739,7 +739,9 @@
           "required": [
             "stage",
             "agentId",
-            "obligationReceiptId"
+            "obligationReceiptId",
+            "originReceipt",
+            "originReceiptHash"
           ],
           "properties": {
             "stage": {
@@ -752,6 +754,13 @@
             "obligationReceiptId": {
               "type": "string",
               "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "originReceipt": {
+              "$ref": "#/$defs/receipt"
+            },
+            "originReceiptHash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
             }
           }
         }
@@ -1190,7 +1199,8 @@
                 }
               ]
             }
-          }
+          },
+          "description": "For confirmed execution, (updaterId, sourceRecordId) uniquely identifies one physical start across jobs, kinds, ordinals and journal rotations. observedAtUtc is the immutable actual start time in the source, not later receipt/recording time; all confirmed phases repeat the same source/time and it cannot exceed completedAtUtc."
         }
       },
       "additionalProperties": false,
@@ -1291,7 +1301,9 @@
         "updaterJobId",
         "journalId",
         "afterJournalSequence",
-        "retentionComplete"
+        "retentionComplete",
+        "proofScope",
+        "operationLifetimeProven"
       ],
       "properties": {
         "records": {
@@ -1334,6 +1346,12 @@
         },
         "retentionComplete": {
           "type": "boolean"
+        },
+        "proofScope": {
+          "const": "journalSnapshot"
+        },
+        "operationLifetimeProven": {
+          "const": false
         }
       },
       "additionalProperties": false
@@ -1348,7 +1366,10 @@
         "updaterJobId",
         "journalId",
         "afterJournalSequence",
-        "retentionComplete"
+        "retentionComplete",
+        "proofScope",
+        "operationLifetimeProven",
+        "serverCommandJobId"
       ],
       "properties": {
         "records": {
@@ -1391,6 +1412,16 @@
         },
         "retentionComplete": {
           "type": "boolean"
+        },
+        "proofScope": {
+          "const": "journalSnapshot"
+        },
+        "operationLifetimeProven": {
+          "const": false
+        },
+        "serverCommandJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
         }
       },
       "additionalProperties": false
@@ -1434,7 +1465,8 @@
             "ROUTE_MISMATCH",
             "INVALID_ADJACENCY",
             "CAPABILITY_MISMATCH",
-            "UNAUTHORIZED_PEER"
+            "UNAUTHORIZED_PEER",
+            "EVIDENCE_SNAPSHOT_MISMATCH"
           ]
         },
         "detail": {

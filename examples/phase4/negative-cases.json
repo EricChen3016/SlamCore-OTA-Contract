@@ -930,7 +930,7 @@
     "base": "durable-transcript.json",
     "changes": [
       {
-        "path": "/steps/34/actor",
+        "path": "/steps/43/actor",
         "value": "A2"
       }
     ],
@@ -942,7 +942,7 @@
     "base": "durable-transcript.json",
     "changes": [
       {
-        "path": "/steps/35/idempotencyKey",
+        "path": "/steps/46/idempotencyKey",
         "value": "status:U3:1"
       }
     ],
@@ -954,7 +954,7 @@
     "base": "durable-transcript.json",
     "changes": [
       {
-        "path": "/steps/35/fingerprint",
+        "path": "/steps/46/fingerprint",
         "value": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
       }
     ],
@@ -1333,7 +1333,7 @@
     "base": "durable-transcript.json",
     "changes": [
       {
-        "path": "/steps/35/actor",
+        "path": "/steps/46/actor",
         "value": "A2"
       }
     ],
@@ -1345,7 +1345,7 @@
     "base": "durable-transcript.json",
     "changes": [
       {
-        "path": "/steps/38/action",
+        "path": "/steps/48/action",
         "value": "serverOutage"
       }
     ],
@@ -1541,7 +1541,7 @@
     "base": "durable-transcript.json",
     "changes": [
       {
-        "path": "/steps/79",
+        "path": "/steps/101",
         "value": {
           "action": "physical",
           "record": {

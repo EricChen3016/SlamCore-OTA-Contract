@@ -8,6 +8,7 @@ import copy
 import hashlib
 import json
 from collections import defaultdict
+from functools import lru_cache
 from pathlib import Path
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
@@ -76,6 +77,7 @@ def source_hash(record):
     return digest(value)
 
 
+@lru_cache(maxsize=1)
 def schema_registry():
     resources = []
     for path in (ROOT / 'schemas').rglob('*.json'):
@@ -219,7 +221,7 @@ def dispatch_gate(value, current_authority):
         require('explicit-rollback-v1' in attachment['capability']['capabilities'], 'ROLLBACK_CAPABILITY')
 
 
-def status(value, obligation, authenticated_peer, local_peer, previous=None, failure_receipt=None):
+def status(value, obligation, authenticated_peer, local_peer, previous=None):
     shape('routed-status-event', value)
     event_fingerprint(value)
     identity(value)
@@ -229,8 +231,12 @@ def status(value, obligation, authenticated_peer, local_peer, previous=None, fai
     require(authenticated_peer[0] == 'agent', 'RAW_UPDATER_STATUS')
     if value['versionEvidence']['availability'] == 'notObserved':
         require(value['failureEvidence']['agentId'] in obligation['routeSnapshot']['orderedAgentIds'], 'FAILURE_EVIDENCE_AUTHORITY')
-        require(failure_receipt is not None, 'FAILURE_EVIDENCE_UNVERIFIED')
+        failure_receipt = value['failureEvidence']['originReceipt']
+        require(digest(failure_receipt) == value['failureEvidence']['originReceiptHash'], 'FAILURE_PROOF_HASH')
         receipt(failure_receipt)
+        source_index = obligation['routeSnapshot']['orderedAgentIds'].index(value['failureEvidence']['agentId'])
+        require(source_index >= value['hopContext']['hopIndex'], 'FAILURE_EVIDENCE_AUTHORITY')
+        require(failure_receipt['command']['hopContext'] == expected_hop(obligation['routeSnapshot'], obligation['serverCommandJobId'], 'downstream', source_index), 'FAILURE_EVIDENCE_AUTHORITY')
         require(failure_receipt['command']['hopContext']['receiverId']==value['failureEvidence']['agentId'], 'FAILURE_EVIDENCE_AUTHORITY')
         require(failure_receipt['receiptId']==value['failureEvidence']['obligationReceiptId'] and failure_receipt['serverCommandJobId']==obligation['serverCommandJobId'] and failure_receipt['semanticFingerprint']==command_fingerprint(obligation) and failure_receipt['downstreamEverSubmitted'] is False and failure_receipt['obligationState']=='terminal', 'FAILURE_AFTER_SUBMISSION')
     for item in value['physicalEvidence']:
@@ -239,13 +245,14 @@ def status(value, obligation, authenticated_peer, local_peer, previous=None, fai
         require(event_fingerprint(value) == event_fingerprint(previous), 'STATUS_EVENT_CONFLICT')
 
 
-def root_status(value, obligation, previous=None, failure_receipt=None):
+def root_status(value, obligation, previous=None):
     """Validate a root envelope; previous means previous LOCAL allocation only."""
     shape('root-status', value)
     root = obligation['routeSnapshot']['orderedAgentIds'][0]
     require(value['rootAgentId'] == root and value['event']['hopContext']['hopIndex'] == 0, 'ROOT_SEQUENCE_OWNER')
-    status(value['event'], obligation, ('agent', root), ('server', obligation['routeSnapshot']['serverId']),failure_receipt=failure_receipt)
+    status(value['event'], obligation, ('agent', root), ('server', obligation['routeSnapshot']['serverId']))
     if previous:
+        require(previous['event']['serverCommandJobId'] == value['event']['serverCommandJobId'], 'SEQUENCE_JOB_SCOPE')
         require(value['sequence'] >= previous['sequence'], 'STALE_SEQUENCE')
         if value['sequence'] == previous['sequence']:
             require(value == previous, 'SEQUENCE_CONFLICT')
@@ -255,21 +262,23 @@ def root_status(value, obligation, previous=None, failure_receipt=None):
             require(previous['event']['state'] not in ('completed','failed','rolled_back'), 'TERMINAL_REGRESSION')
 
 
-def server_ingest(value, obligation, receipts, latest=None, failure_receipt=None):
+def server_ingest(value, obligation, receipts, latest=None):
     """Receipt validation is independent of network arrival/allocation order."""
-    root_status(value, obligation,failure_receipt=failure_receipt)
+    root_status(value, obligation)
     key = (value['event']['serverCommandJobId'], value['sequence'])
     if key in receipts:
         require(receipts[key] == value, 'SEQUENCE_CONFLICT')
     for prior in receipts.values():
-        if prior['event']['statusEventId'] == value['event']['statusEventId']:
+        if prior['event']['serverCommandJobId'] == value['event']['serverCommandJobId'] and prior['event']['statusEventId'] == value['event']['statusEventId']:
             require(prior == value, 'EVENT_SEQUENCE_REASSIGNMENT')
-    receipts[key] = copy.deepcopy(value)
+    candidate = latest
     if latest is None or value['sequence'] > latest['sequence']:
         if latest and latest['event']['state'] in ('completed','failed','rolled_back'):
             require(value['event']['state'] == latest['event']['state'], 'TERMINAL_REGRESSION')
-        return copy.deepcopy(value)
-    return latest
+        candidate = copy.deepcopy(value)
+    # Commit only after every rejection condition has been evaluated.
+    receipts[key] = copy.deepcopy(value)
+    return candidate
 
 
 def raw_evidence(value):
@@ -279,6 +288,7 @@ def raw_evidence(value):
     execution = value['executionEvidence']
     if execution['state'] == 'confirmed':
         require(execution['sourceRecordId'] is not None and execution['observedAtUtc'] is not None and execution['observedAtUtc'] >= value['startedAtUtc'], 'EXECUTION_PROVENANCE')
+        require(value['completedAtUtc'] is None or execution['observedAtUtc'] <= value['completedAtUtc'], 'EXECUTION_TIME')
     else:
         require(execution['sourceRecordId'] is None and execution['observedAtUtc'] is None, 'EXECUTION_PROVENANCE')
     if value['operationPhase'] == 'invoked':
@@ -305,10 +315,18 @@ def projected_evidence(value, obligation):
 def evidence_counts(records):
     """Deduplicate exact phase records, reject altered replay; count actual phases."""
     phases, journal, ordinals = {}, {}, defaultdict(set)
+    physical_sources, confirmations = {}, {}
     for record in records:
         raw_evidence(record)
         r = record
         attempt = (r['updaterId'], r['updaterJobId'], r['operationKind'], r['operationAttemptOrdinal'])
+        confirmation = r['executionEvidence']
+        if confirmation['state'] == 'confirmed':
+            source = (r['updaterId'], confirmation['sourceRecordId'])
+            require(source not in physical_sources or physical_sources[source] == attempt, 'PHYSICAL_SOURCE_REUSED')
+            require(attempt not in confirmations or confirmations[attempt] == confirmation, 'PHYSICAL_START_CONFLICT')
+            physical_sources[source] = attempt
+            confirmations[attempt] = confirmation
         key = attempt + (r['operationPhase'],)
         if key in phases:
             require(phases[key] == r, 'EVIDENCE_PHASE_CONFLICT')
@@ -343,40 +361,71 @@ def evidence_counts(records):
     return counts
 
 
-def transcript(value, commands):
-    """Check recorded ordering and durable facts, not scenario names/outcome labels.
+def root_fingerprint(value):
+    body = copy.deepcopy(value)
+    body['event']['message'] = body['event']['message'].encode('utf-8').hex()
+    return digest(body)
 
-This is a conformance trace checker, not a consumer runtime implementation.
-"""
-    durable, submitted, unknown, queried, accepted, attempts = {}, set(), set(), set(), set(), 0
-    events, root_events, outbox, acknowledged, physical = {}, {}, {}, set(), []
+
+def transcript(value, commands):
+    """Check durable command and real adjacent status traces; no consumer runtime."""
+    durable, submitted, unknown, queried = {}, set(), set(), set()
+    downstream_acceptances, physical = set(), []
+    events, sources, forwarded_events, upstream_pending = {}, {}, {}, set()
+    root_events, outbox, acknowledged = {}, {}, set()
+    attempts, status_attempts, server_online = 0, 0, True
     rollback_by_u = {}
-    server_online = True
-    downstream_acceptances = set()
+    submission_counts, terminal_verified = defaultdict(int), set()
+
+    def root_commit(actor, job, event, sequence):
+        c = commands[job]
+        require(actor == c['routeSnapshot']['orderedAgentIds'][0], 'ROOT_SEQUENCE_OWNER')
+        event_key = (actor, job, event['statusEventId'])
+        require(event_key in events, 'OBSERVE_BEFORE_SEQUENCE')
+        identity_key = (job, event['statusEventId'])
+        if identity_key in root_events:
+            require(root_events[identity_key] == sequence, 'EVENT_SEQUENCE_REASSIGNMENT')
+        else:
+            sequences = [s for (j, _), s in root_events.items() if j == job]
+            require(sequence == (max(sequences) + 1 if sequences else 0), 'SEQUENCE_GAP')
+            root_events[identity_key] = sequence
+        projected = copy.deepcopy(event)
+        projected['hopContext'] = expected_hop(c['routeSnapshot'], job, 'upstream', 0)
+        body = dict(event=projected, sequence=sequence, rootAgentId=actor)
+        root_status(body, c)
+        key = (job, sequence)
+        require(key not in outbox or outbox[key] == body, 'SEQUENCE_CONFLICT')
+        outbox[key] = body
+
     for item in value['steps']:
         action = item['action']
         if action == 'physical':
             c = commands[item['job']]
             leaf = c['routeSnapshot']['orderedAgentIds'][-1]
-            require(item['actor'] == leaf and (leaf,item['job']) in durable and (leaf,item['job']) in downstream_acceptances, 'PHYSICAL_WITHOUT_ACCEPTANCE')
+            require(item['actor'] == leaf and (leaf, item['job']) in durable and (leaf, item['job']) in downstream_acceptances, 'PHYSICAL_WITHOUT_ACCEPTANCE')
             projected_evidence(item['projection'], c)
             require(item['projection']['source'] == item['record'], 'EVIDENCE_SOURCE')
-            physical.append(item['record']); continue
+            physical.append(item['record'])
+            continue
         if action == 'topologyChanged':
-            topology(item['topology']); continue
-        if action in ('serverOutage','serverRestored'):
+            topology(item['topology'])
+            continue
+        if action in ('serverOutage', 'serverRestored'):
             server_online = action == 'serverRestored'
             continue
         if action == 'restart':
             actor = item['actor']
-            for key in submitted:
-                if key[0] == actor:
-                    unknown.add(key)
-            require(item['retained'] == sorted(j for (a,j) in durable if a == actor), 'RESTART_DURABILITY')
+            unknown.update(key for key in submitted if key[0] == actor)
+            require(item['retained'] == sorted(j for a, j in durable if a == actor), 'RESTART_DURABILITY')
+            require(item.get('retainedEvents', []) == sorted([j, e] for a, j, e in events if a == actor), 'STATUS_RESTART_DURABILITY')
+            require(item.get('retainedUpstreamOutbox', []) == sorted([j, e] for a, j, e in upstream_pending if a == actor), 'STATUS_OUTBOX_RESTART')
+            require(item.get('retainedRootOutbox', []) == sorted([j, seq] for j, seq in outbox if commands[j]['routeSnapshot']['orderedAgentIds'][0] == actor and (j, seq) not in acknowledged), 'ROOT_OUTBOX_RESTART')
             continue
         actor, job = item['actor'], item['job']
-        key = (actor, job); c = commands[job]
-        require(actor in c['routeSnapshot']['orderedAgentIds'], 'TRACE_ACTOR')
+        key = (actor, job)
+        c = commands[job]
+        route_agents = c['routeSnapshot']['orderedAgentIds']
+        require(actor in route_agents, 'TRACE_ACTOR')
         if action == 'commit':
             require(item['fingerprint'] == command_fingerprint(c) and item['routeSnapshotHash'] == c['routeSnapshot']['routeSnapshotHash'], 'DURABLE_FINGERPRINT')
             require(key not in durable or durable[key] == item['fingerprint'], 'IDEMPOTENCY_CONFLICT')
@@ -385,82 +434,148 @@ This is a conformance trace checker, not a consumer runtime implementation.
                 require(u not in rollback_by_u or rollback_by_u[u] == job, 'SECOND_ROLLBACK')
                 rollback_by_u[u] = job
             durable[key] = item['fingerprint']
-        elif action in ('forward','ack'):
+        elif action in ('forward', 'ack'):
             require(key in durable, 'WRITE_BEFORE_FORWARD' if action == 'forward' else 'WRITE_BEFORE_ACK')
             if action == 'forward':
                 require(item['fingerprint'] == durable[key], 'REPLAY_PAYLOAD')
                 require(key not in unknown or key in queried, 'QUERY_BEFORE_REPLAY')
                 require(key in submitted or item['atUtc'] < c['expiresAtUtc'], 'EXPIRED_FIRST_SUBMISSION')
-                index = c['routeSnapshot']['orderedAgentIds'].index(actor) + 1
-                wanted = expected_hop(c['routeSnapshot'], job, 'downstream', index)
+                wanted = expected_hop(c['routeSnapshot'], job, 'downstream', route_agents.index(actor) + 1)
                 require(item['hopContext'] == wanted, 'INVALID_ADJACENCY')
                 require(item['payload'] == c['payload'], 'UPDATER_PROJECTION')
                 expected_key = ('rollback:' + c['updaterJobId'] if c['commandType'] == 'rollback' else c['updaterJobId']) if wanted['receiverKind'] == 'updater' else 'command:' + job
                 require(item['idempotencyKey'] == expected_key, 'COMMAND_KEY')
-                submitted.add(key); queried.discard(key); attempts += 1
-            else:
-                accepted.add(key)
+                submitted.add(key)
+                queried.discard(key)
+                attempts += 1
+                submission_counts[key] += 1
         elif action == 'downstreamAccepted':
             require(key in submitted, 'ACCEPT_WITHOUT_SUBMISSION')
             require(item['fingerprint'] == durable[key], 'ACCEPTANCE_FINGERPRINT')
             downstream_acceptances.add(key)
         elif action == 'responseLost':
-            require(key in submitted, 'LOSS_WITHOUT_SUBMISSION'); unknown.add(key)
+            require(key in submitted, 'LOSS_WITHOUT_SUBMISSION')
+            unknown.add(key)
         elif action == 'query':
-            require(key in unknown, 'QUERY_WITHOUT_UNCERTAINTY'); queried.add(key)
-            require(item['result'] in ('404','accepted','terminal','unavailable'), 'QUERY_RESULT')
-            if item['result'] in ('accepted','terminal'):
+            require(key in unknown, 'QUERY_WITHOUT_UNCERTAINTY')
+            queried.add(key)
+            require(item['result'] in ('404', 'accepted', 'terminal', 'unavailable'), 'QUERY_RESULT')
+            if item['result'] in ('accepted', 'terminal'):
                 require(item['receiptFingerprint'] == durable[key], 'ACCEPTANCE_FINGERPRINT')
                 downstream_acceptances.add(key)
                 unknown.discard(key)
+                if item['result'] == 'terminal':
+                    terminal_verified.add(key)
+        elif action == 'mutationRejected':
+            require(key not in unknown, 'UNKNOWN_TERMINAL')
+            require(submission_counts[key] == 1 and item['attemptOrdinal'] == 1 and key not in downstream_acceptances, 'REJECTION_NOT_FIRST_KNOWN_SUBMISSION')
+            require(item['requestFingerprint'] == durable[key], 'REPLAY_PAYLOAD')
+            shape('error-response', item['response'])
+            require(item['response']['status'] in (400, 401, 403, 404, 409, 422) and item['response']['retryable'] is False, 'REJECTION_NOT_DEFINITIVE')
+            terminal_verified.add(key)
         elif action == 'terminalize':
-            require(key not in unknown or item.get('definitiveMutationRejection') is True, 'UNKNOWN_TERMINAL')
-            unknown.discard(key)
-        elif action == 'observe':
+            require(key in durable, 'TERMINAL_WITHOUT_OBLIGATION')
+            require(key not in unknown, 'UNKNOWN_TERMINAL')
+            require(key not in submitted or key in terminal_verified, 'TERMINAL_OUTCOME_UNVERIFIED')
+        elif action in ('observe', 'receiveEvent'):
             require(key in durable, 'OBSERVATION_WITHOUT_OBLIGATION')
-            event = item['event']; event_key = (actor,event['statusEventId'])
+            event = item['event']
+            event_id = event['statusEventId']
             require(event['serverCommandJobId'] == job, 'STATUS_IDENTITY')
-            h = event['hopContext']
-            status(event, c, (h['senderKind'],h['senderId']), (h['receiverKind'],h['receiverId']))
+            event_key = (actor, job, event_id)
+            source_key = (job, event_id)
             fp = event_fingerprint(event)
-            require(event_key not in events or events[event_key] == fp, 'STATUS_EVENT_CONFLICT')
-            events[event_key] = fp
-        elif action == 'allocate':
-            require(actor == c['routeSnapshot']['orderedAgentIds'][0], 'ROOT_SEQUENCE_OWNER')
-            event_key = (actor,item['eventId'])
-            require(event_key in events, 'OBSERVE_BEFORE_SEQUENCE')
-            identity_key = (job,item['eventId'])
-            if identity_key in root_events:
-                require(root_events[identity_key] == item['sequence'], 'EVENT_SEQUENCE_REASSIGNMENT')
+            if action == 'observe':
+                origin = event.get('failureEvidence', {}).get('agentId', route_agents[-1])
+                require(actor == origin, 'STATUS_ORIGIN')
+                if 'failureEvidence' in event:
+                    require(key not in submitted, 'FAILURE_AFTER_SUBMISSION')
+                own_index = route_agents.index(actor)
+                receiver = ('server', c['routeSnapshot']['serverId']) if own_index == 0 else ('agent', route_agents[own_index - 1])
+                status(event, c, ('agent', actor), receiver)
+                require(source_key not in sources or sources[source_key] == fp, 'STATUS_EVENT_CONFLICT')
+                sources[source_key] = fp
             else:
-                sequences = [s for (j,e),s in root_events.items() if j == job]
-                require(item['sequence'] == (max(sequences)+1 if sequences else 0), 'SEQUENCE_GAP')
-                root_events[identity_key] = item['sequence']
-            outbox[(job,item['sequence'])] = events[event_key]
+                # Principal comes from the trace's observed transport context,
+                # independently of the claimed event sender and receiver.
+                principal = tuple(item['authenticatedPeer'])
+                status(event, c, principal, ('agent', actor))
+                require(source_key in sources and sources[source_key] == fp, 'STATUS_EVENT_CONFLICT')
+                delivery = (principal[1], actor, job, event_id)
+                require(delivery in forwarded_events and forwarded_events[delivery] == fp, 'STATUS_RECEIVE_WITHOUT_FORWARD')
+                unknown.discard(key)
+                if event['state'] in ('completed', 'rolled_back', 'failed'):
+                    terminal_verified.add(key)
+            require(event_key not in events or event_fingerprint(events[event_key]) == fp, 'STATUS_EVENT_CONFLICT')
+            events[event_key] = copy.deepcopy(event)
+            if actor == route_agents[0]:
+                # Root event dedupe, sequence and exact outbox commit together.
+                root_commit(actor, job, event, item['sequence'])
+            else:
+                upstream_pending.add(event_key)
+        elif action == 'forwardEvent':
+            event = item['event']
+            event_key = (actor, job, event['statusEventId'])
+            require(event_key in events, 'STATUS_WRITE_BEFORE_FORWARD')
+            require(actor != route_agents[0], 'ROOT_SEQUENCE_OWNER')
+            require(event_fingerprint(event) == event_fingerprint(events[event_key]) == sources[(job, event['statusEventId'])], 'STATUS_EVENT_CONFLICT')
+            receiver = route_agents[route_agents.index(actor) - 1]
+            status(event, c, ('agent', actor), ('agent', receiver))
+            require(item['idempotencyKey'] == 'event:' + job + ':' + event['statusEventId'], 'STATUS_EVENT_KEY')
+            forwarded_events[(actor, receiver, job, event['statusEventId'])] = event_fingerprint(event)
+            status_attempts += 1
+        elif action == 'ackEvent':
+            event_id, child = item['eventId'], item['childAgentId']
+            require((actor, job, event_id) in events, 'STATUS_WRITE_BEFORE_ACK')
+            require((child, actor, job, event_id) in forwarded_events and route_agents.index(child) == route_agents.index(actor) + 1, 'INVALID_ADJACENCY')
+            if actor == route_agents[0]:
+                require((job, event_id) in root_events, 'ROOT_OUTBOX_BEFORE_ACK')
+            upstream_pending.discard((child, job, event_id))
+        elif action == 'allocate':
+            require(actor == route_agents[0], 'ROOT_SEQUENCE_OWNER')
+            event_key = (actor, job, item['eventId'])
+            require(event_key in events, 'OBSERVE_BEFORE_SEQUENCE')
+            root_commit(actor, job, events[event_key], item['sequence'])
         elif action == 'sendStatus':
-            require(actor == c['routeSnapshot']['orderedAgentIds'][0], 'ROOT_SEQUENCE_OWNER')
-            seq_key = (job,item['sequence'])
-            require(seq_key in outbox and outbox[seq_key] == item['fingerprint'], 'STATUS_WRITE_BEFORE_SEND')
+            require(actor == route_agents[0], 'ROOT_SEQUENCE_OWNER')
+            seq_key = (job, item['sequence'])
+            require(seq_key in outbox and item['body'] == outbox[seq_key] and item['fingerprint'] == root_fingerprint(outbox[seq_key]), 'STATUS_WRITE_BEFORE_SEND')
             require(item['idempotencyKey'] == f'status:{job}:{item["sequence"]}', 'STATUS_KEY')
         elif action == 'ackStatus':
             require(server_online, 'ACK_DURING_OUTAGE')
-            require(actor == c['routeSnapshot']['orderedAgentIds'][0], 'ROOT_SEQUENCE_OWNER')
-            require((job,item['sequence']) in outbox, 'STATUS_ACK'); acknowledged.add((job,item['sequence']))
+            require(actor == route_agents[0], 'ROOT_SEQUENCE_OWNER')
+            require((job, item['sequence']) in outbox, 'STATUS_ACK')
+            acknowledged.add((job, item['sequence']))
         else:
             raise Violation('TRACE_ACTION')
-    return dict(logicalJobs=len({j for a,j in durable}), durableObligations=len(durable), deliveryAttempts=attempts, physical=evidence_counts(physical), pendingStatus=len(set(outbox)-acknowledged))
+    return dict(logicalJobs=len({j for a, j in durable}), durableObligations=len(durable), deliveryAttempts=attempts, statusRelayAttempts=status_attempts, physical=evidence_counts(physical), pendingStatus=len(set(outbox) - acknowledged), pendingRelayStatus=len(upstream_pending))
 
 
-def evidence_pages(pages, authoritative_records, projected=False):
+def evidence_pages(pages, authoritative_records, projected=False, requests=None):
     """Validate capture coverage against durable raw/projection source, not labels."""
     require(bool(pages), 'EVIDENCE_COVERAGE')
+    require(requests is not None and len(requests) == len(pages), 'EVIDENCE_REQUEST_CONTEXT')
     first = pages[0]
     watermark = first['journalHighWatermark']
     raw = lambda r: r['source'] if projected else r
-    expected = sorted((r for r in authoritative_records if raw(r)['updaterJobId'] == first['updaterJobId'] and raw(r)['evidenceSource']['journalId'] == first['journalId'] and raw(r)['journalSequence'] <= watermark), key=lambda r: raw(r)['journalSequence'])
+    expected = sorted((r for r in authoritative_records if raw(r)['updaterJobId'] == first['updaterJobId'] and raw(r)['evidenceSource']['journalId'] == first['journalId'] and raw(r)['journalSequence'] <= watermark and (not projected or r['serverCommandJobId'] == first['serverCommandJobId'])), key=lambda r: raw(r)['journalSequence'])
     flattened, cursor = [], 0
     for i, page in enumerate(pages):
         shape('evidence-page' if projected else 'raw-evidence-page',page)
+        request = requests[i]
+        query = request['query']
+        require(set(query).issubset({'afterJournalSequence','limit','journalId','journalHighWatermark'}), 'EVIDENCE_REQUEST')
+        require(query.get('afterJournalSequence',0) == page['afterJournalSequence'] and 1 <= query.get('limit',50) <= 100 and len(page['records']) <= query.get('limit',50), 'EVIDENCE_REQUEST')
+        expected_kind = 'serverCommand' if projected else 'updaterJob'
+        expected_id = page['serverCommandJobId'] if projected else page['updaterJobId']
+        require(request['resourceKind'] == expected_kind and request['resourceId'] == expected_id, 'EVIDENCE_RESOURCE')
+        bound = 'journalId' in query or 'journalHighWatermark' in query
+        require(not bound or ('journalId' in query and 'journalHighWatermark' in query), 'EVIDENCE_SNAPSHOT_BINDING')
+        require(i == 0 and page['afterJournalSequence'] == 0 or bound, 'EVIDENCE_SNAPSHOT_BINDING')
+        if bound:
+            require(query['journalId'] == page['journalId'] and query['journalHighWatermark'] == page['journalHighWatermark'], 'EVIDENCE_SNAPSHOT_MISMATCH')
+        if projected:
+            require(page['serverCommandJobId'] == first['serverCommandJobId'] and all(r['serverCommandJobId'] == page['serverCommandJobId'] for r in page['records']), 'EVIDENCE_RESOURCE')
         require(page['journalHighWatermark']==watermark and page['journalId']==first['journalId'] and page['updaterJobId']==first['updaterJobId'], 'EVIDENCE_WATERMARK')
         require(page['afterJournalSequence']==cursor, 'EVIDENCE_CURSOR')
         seqs=[raw(r)['journalSequence'] for r in page['records']]
@@ -477,9 +592,22 @@ def evidence_pages(pages, authoritative_records, projected=False):
             require(page['nextAfterJournalSequence'] is None, 'EVIDENCE_CURSOR')
             require(not page['complete'] or page['retentionComplete'], 'EVIDENCE_RETENTION')
     require(flattened == expected, 'EVIDENCE_COVERAGE')
-    if not pages[-1]['complete'] or not all(x['retentionComplete'] for x in pages):
-        return {'proven':False, 'counts':None}
-    return {'proven':bool(flattened) and not any(x['unresolvedPhysicalStarts'] for x in evidence_counts([raw(r) for r in flattened]).values()), 'counts':evidence_counts([raw(r) for r in flattened])}
+    count_scope = dict(kind='journalSnapshot', updaterJobId=first['updaterJobId'], journalId=first['journalId'], throughJournalSequence=watermark)
+    if projected:
+        count_scope['serverCommandJobId'] = first['serverCommandJobId']
+    result = dict(snapshotProven=False, operationLifetimeProven=False, countScope=count_scope, counts=None)
+    if pages[-1]['complete'] and all(x['retentionComplete'] for x in pages):
+        result['counts'] = evidence_counts([raw(r) for r in flattened])
+        result['snapshotProven'] = bool(flattened) and not any(x['unresolvedPhysicalStarts'] for x in result['counts'].values())
+    return result
+
+
+def evidence_request(page, projected=False, initial=False, limit=100):
+    """Fixture request builder; real consumers send the explicit snapshot pair."""
+    query = dict(afterJournalSequence=page['afterJournalSequence'], limit=limit)
+    if not initial:
+        query.update(journalId=page['journalId'], journalHighWatermark=page['journalHighWatermark'])
+    return dict(resourceKind='serverCommand' if projected else 'updaterJob', resourceId=page['serverCommandJobId'] if projected else page['updaterJobId'], query=query)
 
 
 def legacy_migration(value):

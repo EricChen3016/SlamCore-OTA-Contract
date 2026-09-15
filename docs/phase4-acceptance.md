@@ -58,9 +58,9 @@ All references below are within this repository. `phase4-viaagent` means the nor
 
 ## Validation evidence and limits
 
-Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **23 positive schema mappings, 33 semantic checks, 96 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
+Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **25 positive schema mappings, 33 semantic checks, 96 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations, and 8 independent-review regression groups**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
 
-The positive N-hop transcript contains **2 logical commands (U3/R3), 6 Agent durable obligations, 12 downstream delivery attempts**. For activation and explicitRollback separately: invoked=1, activationStarted intent=1, completed=1, confirmedPhysicalStarts=1, unresolvedPhysicalStarts=0. Automatic recovery is a separate raw fixture for failed U-recovery. An intent-only crash has confirmedPhysicalStarts=0, unresolvedPhysicalStarts=1 and proven=false even when its journal page is complete. These numbers describe the fixtures, not a device.
+The positive N-hop transcript contains **2 logical commands (U3/R3), 6 Agent durable obligations, 12 downstream command delivery attempts, and 8 upstream status relay attempts**. For activation and explicitRollback separately: invoked=1, activationStarted intent=1, completed=1, confirmedPhysicalStarts=1, unresolvedPhysicalStarts=0. Automatic recovery is a separate raw fixture for failed U-recovery. An intent-only crash has confirmedPhysicalStarts=0, unresolvedPhysicalStarts=1 and snapshotProven=false / operationLifetimeProven=false even when its journal page is complete. These numbers describe the fixtures, not a device.
 
 Local allocation tests require sequence 0,+1; separate ingest tests preserve receipts on stale/gap/out-of-order arrival. Same-event relay fingerprints exclude only the independently validated hop envelope. Page coverage tests compare exact authoritative source records; no response label or expected scenario outcome substitutes for an assertion.
 
@@ -166,6 +166,28 @@ Negative cases first validate the unmodified base, then apply their JSON-pointer
 | same-job-valid-target-route-conflict | replay | n-hop-update.json | IDEMPOTENCY_CONFLICT |
 | same-event-new-sequence | rootReplay | root-status.json | EVENT_SEQUENCE_REASSIGNMENT |
 | retry-fabricates-physical-invocation | trace | durable-transcript.json | TRACE_COUNT_MISMATCH |
+
+## Independent review correction evidence
+
+The first reviewed head `98c205c` was rejected for F1–F6. These corrections preserve
+repository 2.2.0/runtime 2.0 and the additive boundary. Tests first reproduced the
+faults; the corrected source now passes the same independent F1/F2/F4 probes and
+the following eight regression groups in `scripts/validate_phase4_review.py`.
+The final corrected-head Independent Review remains a separate delivery gate.
+
+| Finding | Concrete correction and regression evidence |
+| --- | --- |
+| F1 | `atomic_ingest`: rejection leaves receipts/latest unchanged; valid stale/gap/replay still works. All acceptance validation precedes receipt commit. |
+| F2 | `physical_start_time`, `physical_source_reuse`, `physical_confirmation_conflict`: actual start cannot follow completion; one source cannot identify two attempts; every confirmed phase repeats one immutable source/time; unknown-to-confirmed resolution and exact replay stay valid. |
+| F3 | `fixed_snapshot_reads`, `evidence-read-transcript.json`: actual query journalId/high-watermark binds concurrent reads at 9 and 12; partial/mismatched pair, resource mismatch and response drift reject. Older bounded snapshots expose countScope and never claim operationLifetimeProven. |
+| F4 | `uncertain_rejection`: rejected retry cannot clear an earlier unknown acceptance; first known-unaccepted mutation rejection and later verified reconciliation remain representable. |
+| F5 | `relayed_origin_proof`, `leaf-before-forward-failure.json`, `never-forwarded-transcript.json`, `never-forwarded-history.json`: original A3 receipt/hash is carried durably through A2/A1/Server. No unreachable out-of-band proof injection. Omission, mutation, foreign origin and downstream-submitted receipt reject; replay/history works using the wire input. |
+| F6 | `adjacent_status_durability`: actual A3 source creation, independent peer identity on A2/A1 receipt, immutable source fingerprint, commit-before-ACK/forward, duplicate forwarding, retained source/relay/root outboxes across restart, and Root-only atomic sequence/outbox. Mutation, forged actual actor, premature ACK/forward and lost restart state reject. |
+
+The normal U/R trace has zero pending relay/root status obligations after ACK;
+the never-forwarded U trace has 3 durable Agent obligations, 2 command deliveries,
+4 status relay attempts and zero physical operations. These remain synthetic
+Contract conformance facts, not runtime/HIL evidence.
 
 ## Consumer handoff and final gate
 

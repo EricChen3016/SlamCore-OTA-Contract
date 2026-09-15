@@ -13,6 +13,13 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Add topology-agnostic raw Updater evidence reads and Leaf/Root projections with immutable ordinals/phases, journal/runtime provenance, pagination coverage and explicit unknown versus confirmed physical execution.
 - Add single-hop, branching and N-hop fixtures, durable restart/response-loss/outage transcripts, exact-reason semantic negative cases, compatibility/migration/security guidance and consumer handoff to Server #8/#18, Agent #9 and Updater #55.
 
+### Review corrections
+
+- Validate Server status acceptance before mutating receipts; reject terminal regressions atomically.
+- Bind physical-start source identity/time across phases and attempts; reject reused confirmation sources and starts after completion.
+- Carry explicit journal/watermark request continuations and snapshot-only proof scope; retain uncertainty after a rejected retry.
+- Carry complete immutable originating rejection receipts through every authenticated upstream Agent and validate real durable A3/A2/A1 status/restart/outbox traces.
+
 ### Compatibility decision
 
 - Repository minor version advances to 2.2.0; runtime remains 2.0 under the existing additive-endpoint precedent. Existing registration, pending commands, Agent/Updater payloads, twelve states, U/R rollback, status sequence/expiry and legacy history schemas retain their behavior.

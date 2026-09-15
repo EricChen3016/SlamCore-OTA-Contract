@@ -230,7 +230,12 @@ New structured errors are defined only in the Phase 4 ErrorResponse schema.
 400 VALIDATION_FAILED, 401/403 UNAUTHORIZED_PEER, 409 INVALID_TOPOLOGY/STALE_ROUTE/
 ROUTE_MISMATCH/INVALID_ADJACENCY/IDEMPOTENCY_CONFLICT, 422 CAPABILITY_MISMATCH or
 INCOMPATIBLE_RELEASE are nonretryable request rejections. 503 DEPENDENCY_UNAVAILABLE
-and transport failure leave acceptance uncertain. Their receipt/outcome meaning
+and transport failure leave acceptance uncertain. In particular, a nonretryable
+rejection to a retry does not resolve an earlier lost acceptance. Terminalization
+requires a verified outcome; a shortcut flag claiming definitive rejection is
+insufficient while the earlier send is unknown. A first, known-unaccepted mutation
+can be rejected deterministically only when its original request/attempt is matched
+and no earlier uncertain/accepted submission exists. Their receipt/outcome meaning
 must not be inferred solely from retryable=false; pre-existing obligations remain.
 
 ## 7. Status, root sequence and dedicated history
@@ -242,10 +247,18 @@ envelope does not create a new event. Same event ID with altered semantic payloa
 is a conflict. Relays never allocate Server sequence. Each new observation at Root
 atomically stores event dedupe, next sequence and the exact outbox body. Sequence
 starts at 0 per Server job, incrementing exactly 1 for each new local observation.
-Retries and restart reuse that body, sequence and key.
+Retries and restart reuse that body, sequence and key. The durable transcript now
+models source creation at A3, independent authenticated peer context at each receive,
+A3/A2 commit-before-ACK/forward, retained per-Agent event/outbox state on restart,
+unchanged semantic source fingerprint through A2/A1, and Root's atomic sequence/body
+commit. It includes duplicate forwarding before ACK on both upstream relay edges.
+Root-to-Server fingerprint covers the complete fixed root envelope, not only its
+inner source observation. No relay may originate a replacement body for an existing
+event or allocate a Server sequence.
 
-Allocation order does not require HTTP arrival order. Server stores immutable
-receipts, accepts exact replay, handles stale/gapped arrivals without rolling back
+Allocation order does not require HTTP arrival order. Server validates every acceptance condition, including terminal transitions, before
+atomically storing a receipt or changing latest state. A rejected request leaves
+receipt/latest state unchanged. It accepts exact replay and handles stale/gapped arrivals without rolling back
 latest sequence, and preserves terminal obligations. A conflicting existing
 sequence or reassigned event is rejected. Newer nonterminal observations cannot
 reopen terminal jobs. The validator distinguishes local allocation assertions from
@@ -271,7 +284,27 @@ Agent and its durable obligationReceiptId. The receiver must validate this
 against the authenticated Agent's retained never-forwarded record. Command receipts
 include receiptId and monotonic downstreamEverSubmitted; the latter can never return
 to false after forwarding. Receipt job/hash/fingerprint and rejecting Agent must all
-match, and state must be terminal before this failure is projected. It cannot be
+match, and state must be terminal before this failure is projected.
+
+The complete `originReceipt` and its `originReceiptHash` are embedded in
+failureEvidence, not fetched by Server through an undeclared side channel. The hash
+covers the entire original receipt using section 3 canonicalization. The origin
+receipt's incoming command hop must name the rejecting snapshot Agent; its command
+semantic fingerprint must equal the original obligation. Every forwarded copy keeps
+that exact receipt, hash and event identity, including after restart and in history.
+
+Provenance uses the established adjacent-peer trust boundary: the origin validates
+its own durable never-forwarded fact; its immediate parent authenticates that origin
+and commits the proof before ACK/forward. Each next parent authenticates its own
+immediate child and relies on that authorized trusted relay's validation/retention
+of the unchanged descendant proof. The claimed origin must be on the remaining
+snapshot descendant chain. Server authenticates Root and validates the full projected
+proof using its retained obligation. This is explicit transitive trust through the
+configured Agents, not a claim that an unsigned hash independently authenticates a
+remote source or withstands a compromised trusted relay. No direct source bypass,
+body-claimed identity alone, new PKI mechanism or out-of-band receipt is permitted.
+See `leaf-before-forward-failure.json`, `never-forwarded-transcript.json`, and
+`never-forwarded-history.json` for A3→A2→A1→Server proof transport. It cannot be
 used after submission might have occurred, for a physical operation, or for R.
 This separately named variant is exclusive to new routed interfaces; it neither
 relaxes the legacy unavailable R-only union nor guesses a device version. Device
@@ -329,7 +362,13 @@ with null observation is used at invocation. An activation-boundary intent with
 no direct execution capture is `unknown`. `confirmed` requires a durable direct
 sourceRecordId and observedAtUtc from actual engine execution observation, checked
 against captured journal/runtime evidence. A succeeded completion requires confirmed
-execution. An intent-only crash remains unknown; a later completed phase may resolve
+execution. `(updaterId, sourceRecordId)` is the immutable unique physical-start
+identity across jobs, operation kinds, ordinals and journal rotations; it cannot be
+reused to manufacture a second attempt. observedAtUtc is the actual start time in
+that source observation, not the later time a relay receives or stores it. It must
+be at/after invocation and at/before completedAtUtc when completion is known. Every
+confirmed phase of the same attempt repeats the identical sourceRecordId and actual
+start time. Contradictory source/time confirmations are conflicts, not deduped facts. An intent-only crash remains unknown; a later completed phase may resolve
 it using direct source evidence without altering the earlier immutable phase record.
 If execution cannot be established, retain unknown; never manufacture confirmation
 from a final version or an ordinal. A failed invocation without activationStarted
@@ -341,7 +380,7 @@ record counts invocation; activationStarted counts boundary intents. confirmedPh
 physical starts backed by executionEvidence; unresolvedPhysicalStarts counts intents
 without that confirmation. Do not equate invocation, intent and confirmed execution. A failed invocation can have zero activations. Likewise,
 count U confirmed physical starts independently from automaticRecovery confirmed
-physical starts. `intent-only-evidence-page.json` returns proven=false even with a
+physical starts. `intent-only-evidence-page.json` returns snapshotProven=false even with a
 complete retained journal: one intent, zero confirmed starts, one unresolved start.
 `physical-operations.json` includes activation U3, recovery for separate failed
 U-recovery, and explicit rollback R3→U3. `durable-transcript.json` contains two
@@ -355,12 +394,27 @@ pages have complete=false and nextAfterJournalSequence equal to their last recor
 The final page has a null next cursor. Complete=true requires retentionComplete=true;
 retention loss remains explicitly partial. All pages retain one job/journal/watermark,
 strict increasing unique sequence, and exact equality to matching authoritative
-source records through that watermark. A complete empty record set still proves no
-physical operation; the evidence result is unproven. An unknown execution prevents
+source records through that watermark. All three evidence GETs use an explicit
+continuation binding: send both `journalId` and `journalHighWatermark` from page one
+alongside afterJournalSequence on every continuation or exact snapshot replay. Both
+may be absent only on a fresh page at afterJournalSequence=0. A partial pair is a
+400 validation error; a mismatched/unavailable snapshot binding returns
+409 EVIDENCE_SNAPSHOT_MISMATCH, never a silently refreshed live read. The binding is
+resource-scoped: raw U versus projected Server U/R must match the endpoint and every
+response. Two simultaneous reads may share afterJournalSequence but carry different
+watermarks; restart/retry retains each binding. `evidence-read-transcript.json`
+includes actual requests and two pages at watermark 9 while records 10–12 are added. A complete empty record set still proves no
+physical operation; the evidence result is unproven. Responses explicitly expose
+`proofScope=journalSnapshot` and `operationLifetimeProven=false`. The conformance
+result is named snapshotProven and returns countScope with job/journal/watermark;
+it never attests operation-lifetime exactly-once, even for a complete older snapshot.
+A lowered watermark with omitted later activity remains bounded historical evidence.
+HIL must independently establish complete operation-lifetime source coverage. An unknown execution prevents
 a proven count even when pagination and retention are complete.
 
 Evidence queries fix a journal high-watermark on the first page and return records
-in increasing journalSequence; subsequent pages use afterJournalSequence. Retain
+in increasing journalSequence; subsequent pages use afterJournalSequence plus the
+explicit journalId/high-watermark pair. Retain
 source journal IDs and evidence across retries/expiry. `complete=false` or missing
 records/capture means unproven; final version or one completion row never proves
 exactly once. To claim a count, HIL must establish complete durable source coverage

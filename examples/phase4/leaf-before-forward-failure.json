@@ -67,16 +67,16 @@
     "createdAtUtc": "2026-09-15T00:00:00Z",
     "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
   },
-  "statusEventId": "event-U3-no-forward",
+  "statusEventId": "event-U3-leaf-never-forwarded",
   "hopContext": {
-    "hopIndex": 0,
+    "hopIndex": 2,
     "direction": "upstream",
     "senderKind": "agent",
-    "senderId": "A1",
-    "receiverKind": "server",
-    "receiverId": "server-1",
+    "senderId": "A3",
+    "receiverKind": "agent",
+    "receiverId": "A2",
     "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
-    "hopId": "8df48717f980b82454f3af71e7f830b3dfe171e35c5285d15eb0c8f89761e7c0"
+    "hopId": "70922e190492025bea15e075cb540e6f31b25b2351a154fe84bd709596844962"
   },
   "state": "failed",
   "progressPercent": 0,
@@ -91,8 +91,8 @@
   "physicalEvidence": [],
   "failureEvidence": {
     "stage": "neverForwarded",
-    "agentId": "A1",
-    "obligationReceiptId": "receipt-U3-A1",
+    "agentId": "A3",
+    "obligationReceiptId": "receipt-U3-A3-never-forwarded",
     "originReceipt": {
       "contractVersion": "2.0",
       "serverCommandJobId": "U3",
@@ -181,19 +181,19 @@
           "platform": "linux-arm64"
         },
         "hopContext": {
-          "hopIndex": 0,
+          "hopIndex": 2,
           "direction": "downstream",
-          "senderKind": "server",
-          "senderId": "server-1",
+          "senderKind": "agent",
+          "senderId": "A2",
           "receiverKind": "agent",
-          "receiverId": "A1",
+          "receiverId": "A3",
           "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
-          "hopId": "4ab1e6e8477ddeec4369e8cab43ed67fccc5c5a038ea3dee22044c8f4cb418c5"
+          "hopId": "a9bdd73b1c57434e55b4ea13f5222ed31b22dffc821e137dd8f2b4df9b8fcc51"
         }
       },
       "downstreamEverSubmitted": false,
-      "receiptId": "receipt-U3-A1"
+      "receiptId": "receipt-U3-A3-never-forwarded"
     },
-    "originReceiptHash": "f8507158733a187a722c7a9ee754dc36c68b135e02ee9c733abc76b1a2cfa1d0"
+    "originReceiptHash": "95818c1992c8a9a64ef50d3103a1ee67a498f50032cd5f725a15a569e44ff50c"
   }
 }

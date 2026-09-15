@@ -537,7 +537,10 @@ paths:
       description: Only immediate child Agent on retained snapshot. Key event:<serverCommandJobId>:<statusEventId>.
         Fingerprint excludes hopContext only, preserving every semantic observation
         byte. Persist and dedupe before upstream forward and acknowledgment. No Server
-        sequence allocated by relay.
+        sequence allocated by relay. A notObserved failure carries the complete immutable
+        original never-forwarded originReceipt and originReceiptHash inside failureEvidence;
+        every relay validates and retains the child-authenticated proof unchanged.
+        No direct origin bypass or out-of-band proof channel.
       x-owner: Agent
       x-authenticated-peer-required: true
       servers:
@@ -639,7 +642,10 @@ paths:
       description: Read by authorized immediate upstream peer; event bodies retain
         original immutable observation and original incoming hopContext. On forwarding,
         generate the deterministic next upstream hop envelope only. Stable order (observedAtUtc,statusEventId)
-        with watermark cursor.
+        with watermark cursor. A notObserved failure carries the complete immutable
+        original never-forwarded originReceipt and originReceiptHash inside failureEvidence;
+        every relay validates and retains the child-authenticated proof unchanged.
+        No direct origin bypass or out-of-band proof channel.
       x-owner: Agent
       x-authenticated-peer-required: true
       servers:
@@ -755,6 +761,10 @@ paths:
         Allocation is contiguous at Root; network arrival may be stale, duplicated
         or gapped. Persist receipt, preserve monotonic latest projection and terminal
         obligations. ErrorResponse correlationId echoes this request X-Correlation-Id.
+        A notObserved failure carries the complete immutable original never-forwarded
+        originReceipt and originReceiptHash inside failureEvidence; every relay validates
+        and retains the child-authenticated proof unchanged. No direct origin bypass
+        or out-of-band proof channel.
       x-owner: Server
       x-authenticated-peer-required: true
       servers:
@@ -859,7 +869,10 @@ paths:
         evidence. Latest authoritative status per command ordered descending (command.createdAtUtc,
         serverCommandJobId), stable keyset cursor fixes watermark. unavailable never
         changes device version or original U. Legacy /api/v1/devices/{deviceId}/history
-        remains UpdateStatus[].
+        remains UpdateStatus[]. A notObserved failure carries the complete immutable
+        original never-forwarded originReceipt and originReceiptHash inside failureEvidence;
+        every relay validates and retains the child-authenticated proof unchanged.
+        No direct origin bypass or out-of-band proof channel.
       x-owner: Server
       x-authenticated-peer-required: true
       servers:
@@ -973,6 +986,10 @@ paths:
       description: Authorized immediate upstream peer reads durable leaf projection
         of raw U journal evidence. Relays retain source unchanged, never renumber.
         Includes completion/watermark fields; missing/incomplete capture means unproven.
+        Continuation requires the explicit journalId + journalHighWatermark pair returned
+        by the first page, preserving simultaneous independent reads. proofScope=journalSnapshot;
+        operationLifetimeProven=false even for complete retained pagination. External
+        lifetime coverage is a separate HIL obligation.
       x-owner: Agent
       x-authenticated-peer-required: true
       servers:
@@ -1002,6 +1019,8 @@ paths:
           minimum: 1
           maximum: 100
           default: 50
+      - $ref: '#/components/parameters/EvidenceJournalId'
+      - $ref: '#/components/parameters/EvidenceHighWatermark'
       responses:
         '200':
           description: Durable read snapshot. Absence of evidence is unproven, never
@@ -1052,9 +1071,10 @@ paths:
                 canonical:
                   externalValue: ../examples/phase4/error-404.json
         '409':
-          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+          description: 'IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
             INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
-            mutation of the rejected request.
+            mutation of the rejected request. Evidence snapshot binding mismatch:
+            EVIDENCE_SNAPSHOT_MISMATCH.'
           content:
             application/json:
               schema:
@@ -1088,7 +1108,10 @@ paths:
       description: Authorized control-plane reads retained leaf/root projection. Count
         unique updater/ U /kind/ordinal/phase only after complete journal coverage.
         Response is evidence for an exact immutable command and route, not a final-version
-        estimate.
+        estimate. Continuation requires the explicit journalId + journalHighWatermark
+        pair returned by the first page, preserving simultaneous independent reads.
+        proofScope=journalSnapshot; operationLifetimeProven=false even for complete
+        retained pagination. External lifetime coverage is a separate HIL obligation.
       x-owner: Server
       x-authenticated-peer-required: true
       servers:
@@ -1118,6 +1141,8 @@ paths:
           minimum: 1
           maximum: 100
           default: 50
+      - $ref: '#/components/parameters/EvidenceJournalId'
+      - $ref: '#/components/parameters/EvidenceHighWatermark'
       responses:
         '200':
           description: Durable read snapshot. Absence of evidence is unproven, never
@@ -1168,9 +1193,10 @@ paths:
                 canonical:
                   externalValue: ../examples/phase4/error-404.json
         '409':
-          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+          description: 'IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
             INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
-            mutation of the rejected request.
+            mutation of the rejected request. Evidence snapshot binding mismatch:
+            EVIDENCE_SNAPSHOT_MISMATCH.'
           content:
             application/json:
               schema:
@@ -1205,7 +1231,11 @@ paths:
         capability required. Path uses U for both update and rollback; raw records
         never contain R, route or operationCorrelationId. Return all U operation kinds.
         Source journal immutable; pagination watermark fixed, complete true only once
-        all matching retained records through watermark have been returned.
+        all matching retained records through watermark have been returned. Continuation
+        requires the explicit journalId + journalHighWatermark pair returned by the
+        first page, preserving simultaneous independent reads. proofScope=journalSnapshot;
+        operationLifetimeProven=false even for complete retained pagination. External
+        lifetime coverage is a separate HIL obligation.
       x-owner: Updater
       x-authenticated-peer-required: true
       servers:
@@ -1235,6 +1265,8 @@ paths:
           minimum: 1
           maximum: 100
           default: 50
+      - $ref: '#/components/parameters/EvidenceJournalId'
+      - $ref: '#/components/parameters/EvidenceHighWatermark'
       responses:
         '200':
           description: Durable read snapshot. Absence of evidence is unproven, never
@@ -1285,9 +1317,10 @@ paths:
                 canonical:
                   externalValue: ../examples/phase4/error-404.json
         '409':
-          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+          description: 'IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
             INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
-            mutation of the rejected request.
+            mutation of the rejected request. Evidence snapshot binding mismatch:
+            EVIDENCE_SNAPSHOT_MISMATCH.'
           content:
             application/json:
               schema:
@@ -1367,3 +1400,25 @@ components:
       description: 'Exact negotiated value required; unknown version or capability
         returns 422 with no mutation or route-critical delivery. Header assertion
         alone is not proof: receiver checks authenticated persisted capability evidence.'
+    EvidenceJournalId:
+      name: journalId
+      in: query
+      required: false
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      description: Send journalId and journalHighWatermark together on every continuation
+        or exact snapshot replay. Both may be absent only for a fresh first page with
+        afterJournalSequence=0. Never silently select a new live snapshot. Mismatch
+        or unavailable binding returns 409 EVIDENCE_SNAPSHOT_MISMATCH.
+    EvidenceHighWatermark:
+      name: journalHighWatermark
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      description: Send journalId and journalHighWatermark together on every continuation
+        or exact snapshot replay. Both may be absent only for a fresh first page with
+        afterJournalSequence=0. Never silently select a new live snapshot. Mismatch
+        or unavailable binding returns 409 EVIDENCE_SNAPSHOT_MISMATCH.

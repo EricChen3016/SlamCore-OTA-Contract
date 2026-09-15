@@ -121,5 +121,8 @@
   "updaterJobId": "U3",
   "journalId": "journal-P3-1",
   "afterJournalSequence": 0,
-  "retentionComplete": true
+  "retentionComplete": true,
+  "proofScope": "journalSnapshot",
+  "operationLifetimeProven": false,
+  "serverCommandJobId": "R3"
 }
