@@ -1,6 +1,7 @@
 """Regressions for independent review findings on Phase 4 contract assertions."""
 import copy
 import json
+from itertools import permutations
 from pathlib import Path
 import phase4_contract as p
 
@@ -105,7 +106,9 @@ def uncertain_rejection():
 def run(report_error):
     checks = [atomic_ingest, physical_start_time, physical_source_reuse,
               physical_confirmation_conflict, uncertain_rejection, fixed_snapshot_reads,
-              relayed_origin_proof, adjacent_status_durability]
+              relayed_origin_proof, adjacent_status_durability,
+              cross_phase_time_counts, cross_phase_time_batch, cross_phase_time_prefix,
+              cross_phase_time_reverse, cross_phase_time_boundaries]
     for check in checks:
         try:
             check()
@@ -217,3 +220,98 @@ def adjacent_status_durability():
     mutation(root_restart,lambda s:s.update(retainedRootOutbox=[]),'ROOT_OUTBOX_RESTART')
     allocate=next(i for i,s in enumerate(data['steps']) if s['action']=='allocate')
     mutation(allocate,lambda s:s.update(actor='A2'),'ROOT_SEQUENCE_OWNER')
+
+
+def time_status(records=None, sequence=0):
+    value = load('cross-phase-time-status.json')
+    if records is not None:
+        template = value['event']['physicalEvidence'][0]
+        value['event']['physicalEvidence'] = [dict(copy.deepcopy(template), source=copy.deepcopy(r)) for r in records]
+    value['sequence'] = sequence
+    value['event']['statusEventId'] = 'known-time-' + str(sequence)
+    return value
+
+
+def time_records():
+    return [item['source'] for item in time_status()['event']['physicalEvidence']]
+
+
+def cross_phase_time_counts():
+    records = time_records()
+    # Each record is valid: the failed completion has no confirmed time of its own.
+    for record in records:
+        p.raw_evidence(record)
+    for order in permutations(records):
+        before = copy.deepcopy(order)
+        rejected('EXECUTION_TIME', lambda: p.evidence_counts(order))
+        assert order == before
+
+
+def cross_phase_time_batch():
+    value = time_status()
+    obligation = load('n-hop-update.json')
+    rejected('EXECUTION_TIME', lambda: p.root_status(value, obligation))
+    receipts, latest = {}, None
+    before = copy.deepcopy((receipts, latest, value))
+    rejected('EXECUTION_TIME', lambda: p.server_ingest(value, obligation, receipts, latest))
+    assert (receipts, latest, value) == before
+
+
+def cross_phase_time_prefix():
+    records = time_records()
+    obligation = load('n-hop-update.json')
+    prefix = time_status(records[:2], 0)
+    completion = time_status(records[2:], 1)
+    allocation_prefix = copy.deepcopy(prefix)
+    allocation_prefix['event'].update(state='installing', progressPercent=50, errorCode=None)
+    p.root_status(allocation_prefix, obligation)
+    rejected('EXECUTION_TIME', lambda: p.root_status(completion, obligation, allocation_prefix))
+    receipts = {}
+    latest = p.server_ingest(prefix, obligation, receipts)
+    before = copy.deepcopy((receipts, latest, completion))
+    rejected('EXECUTION_TIME', lambda: p.server_ingest(completion, obligation, receipts, latest))
+    assert (receipts, latest, completion) == before
+    assert p.server_ingest(prefix, obligation, receipts, latest) == latest
+
+
+def cross_phase_time_reverse():
+    records = time_records()
+    obligation = load('n-hop-update.json')
+    # Completion-only is partial knowledge, not a missing-invocation error.
+    # Cover both stale lower sequence and later higher sequence arrival.
+    for completion_sequence, prefix_sequence in ((1, 0), (0, 1)):
+        completion = time_status(records[2:], completion_sequence)
+        prefix = time_status(records[:2], prefix_sequence)
+        receipts = {}
+        latest = p.server_ingest(completion, obligation, receipts)
+        before = copy.deepcopy((receipts, latest, prefix))
+        rejected('EXECUTION_TIME', lambda: p.server_ingest(prefix, obligation, receipts, latest))
+        assert (receipts, latest, prefix) == before
+        assert p.server_ingest(completion, obligation, receipts, latest) == latest
+
+
+def cross_phase_time_boundaries():
+    obligation = load('n-hop-update.json')
+    for actual in ('2026-09-15T00:01:00Z', '2026-09-15T00:01:05Z'):
+        records = time_records()
+        records[1]['executionEvidence']['observedAtUtc'] = actual
+        rehash(records[1])
+        for order in permutations(records):
+            counts = p.evidence_counts(order)['activation']
+            assert counts == dict(invoked=1, activationStarted=1, completed=1,
+                                 confirmedPhysicalStarts=1, unresolvedPhysicalStarts=0)
+        for parts in ((records[:2], records[2:]), (records[2:], records[:2])):
+            receipts, latest = {}, None
+            for sequence, part in enumerate(parts):
+                latest = p.server_ingest(time_status(part, sequence), obligation, receipts, latest)
+            assert len(receipts) == 2 and latest['sequence'] == 1
+    p.evidence_facts(records[2:])
+    rejected('MISSING_INVOCATION', lambda: p.evidence_counts(records[2:]))
+    # Consistent repeated confirmation and delayed unknown-intent resolution remain valid.
+    records[2]['executionEvidence'] = copy.deepcopy(records[1]['executionEvidence'])
+    rehash(records[2])
+    assert p.evidence_counts(records * 2)['activation']['confirmedPhysicalStarts'] == 1
+    records[1]['executionEvidence'] = dict(state='unknown', sourceRecordId=None, observedAtUtc=None)
+    rehash(records[1])
+    assert p.evidence_counts(records)['activation']['confirmedPhysicalStarts'] == 1
+    assert p.evidence_counts(records[:2])['activation']['unresolvedPhysicalStarts'] == 1

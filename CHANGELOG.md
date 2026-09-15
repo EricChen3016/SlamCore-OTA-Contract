@@ -15,6 +15,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Review corrections
 
+- Enforce the already-defined actual-start bound against a known completion across phase records, including failed/unknown completion and either arrival order; validate partial status evidence before atomic receipt commit while retaining complete-set counting requirements. Add five regression groups without changing the unpublished 2.2.0 wire surface or runtime 2.0.
+
 - Validate Server status acceptance before mutating receipts; reject terminal regressions atomically.
 - Bind physical-start source identity/time across phases and attempts; reject reused confirmation sources and starts after completion.
 - Carry explicit journal/watermark request continuations and snapshot-only proof scope; retain uncertainty after a rejected retry.

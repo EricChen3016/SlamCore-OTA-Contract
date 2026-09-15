@@ -241,6 +241,8 @@ def status(value, obligation, authenticated_peer, local_peer, previous=None):
         require(failure_receipt['receiptId']==value['failureEvidence']['obligationReceiptId'] and failure_receipt['serverCommandJobId']==obligation['serverCommandJobId'] and failure_receipt['semanticFingerprint']==command_fingerprint(obligation) and failure_receipt['downstreamEverSubmitted'] is False and failure_receipt['obligationState']=='terminal', 'FAILURE_AFTER_SUBMISSION')
     for item in value['physicalEvidence']:
         projected_evidence(item, obligation)
+    known = value['physicalEvidence'] + (previous['physicalEvidence'] if previous else [])
+    evidence_facts([item['source'] for item in known])
     if previous and value['statusEventId'] == previous['statusEventId']:
         require(event_fingerprint(value) == event_fingerprint(previous), 'STATUS_EVENT_CONFLICT')
 
@@ -260,6 +262,8 @@ def root_status(value, obligation, previous=None):
             require(value['sequence'] == previous['sequence'] + 1, 'SEQUENCE_GAP')
             require(value['event']['statusEventId'] != previous['event']['statusEventId'], 'EVENT_SEQUENCE_REASSIGNMENT')
             require(previous['event']['state'] not in ('completed','failed','rolled_back'), 'TERMINAL_REGRESSION')
+        evidence_facts([item['source'] for envelope in (previous, value)
+                        for item in envelope['event']['physicalEvidence']])
 
 
 def server_ingest(value, obligation, receipts, latest=None):
@@ -276,6 +280,10 @@ def server_ingest(value, obligation, receipts, latest=None):
         if latest and latest['event']['state'] in ('completed','failed','rolled_back'):
             require(value['event']['state'] == latest['event']['state'], 'TERMINAL_REGRESSION')
         candidate = copy.deepcopy(value)
+    # Validate partial known facts across durable receipts, including stale arrivals.
+    # Missing phases may arrive later; contradictory known times cannot be committed.
+    evidence_facts([item['source'] for envelope in [*receipts.values(), value]
+                    for item in envelope['event']['physicalEvidence']])
     # Commit only after every rejection condition has been evaluated.
     receipts[key] = copy.deepcopy(value)
     return candidate
@@ -312,8 +320,8 @@ def projected_evidence(value, obligation):
     require((raw['operationKind'] == 'explicitRollback') == (obligation['commandType'] == 'rollback'), 'EVIDENCE_KIND')
 
 
-def evidence_counts(records):
-    """Deduplicate exact phase records, reject altered replay; count actual phases."""
+def evidence_facts(records):
+    """Validate partial known facts without requiring missing phases or ordinals."""
     phases, journal, ordinals = {}, {}, defaultdict(set)
     physical_sources, confirmations = {}, {}
     for record in records:
@@ -335,6 +343,16 @@ def evidence_counts(records):
         require(sequence not in journal or journal[sequence] == r, 'JOURNAL_SEQUENCE_CONFLICT')
         journal[sequence] = r
         ordinals[attempt[:-1]].add(attempt[-1])
+    for attempt, confirmation in confirmations.items():
+        complete = phases.get(attempt + ('completed',))
+        if complete is not None:
+            require(confirmation['observedAtUtc'] <= complete['completedAtUtc'], 'EXECUTION_TIME')
+    return phases, ordinals
+
+
+def evidence_counts(records):
+    """Validate a complete source set before counting deduplicated actual phases."""
+    phases, ordinals = evidence_facts(records)
     for scope, values in ordinals.items():
         require(values == set(range(1, max(values) + 1)), 'ORDINAL_GAP')
         for ordinal in values:

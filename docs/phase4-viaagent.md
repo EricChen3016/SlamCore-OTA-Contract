@@ -375,6 +375,21 @@ from a final version or an ordinal. A failed invocation without activationStarte
 has zero observed physical starts. A boundary intent without confirmation has an
 unresolved count, not an exactly-once result.
 
+Validation has three scopes. `raw_evidence` checks one record's shape, hash and
+facts available in that record. `evidence_facts` checks all currently known phase
+records together, without treating missing invocation, activation or earlier
+ordinals as invalid partial delivery. A confirmed actual start must not exceed a
+known completion for the same updater/U/kind/ordinal, even if the failed completion
+itself has unknown execution evidence and null source/time. This check is independent
+of arrival order. Status validation checks the event's known facts; local Root
+allocation also checks the supplied previous event. Server ingest checks the union
+of all retained receipt evidence and the incoming event before committing any
+receipt or latest projection, including on stale arrivals. Callers accumulating
+partial evidence must retain and validate that union; per-record validity is not
+aggregate validity. `evidence_counts` additionally requires complete source-set
+invocation/phase/ordinal coverage before asserting counts. None of these checks
+turn partial delivery into proof of a complete operation lifetime.
+
 Count **distinct phase identities**, after exact-replay dedupe. A rollback invoked
 record counts invocation; activationStarted counts boundary intents. confirmedPhysicalStarts counts only
 physical starts backed by executionEvidence; unresolvedPhysicalStarts counts intents
