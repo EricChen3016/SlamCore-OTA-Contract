@@ -273,6 +273,8 @@ def rejection_facts(events):
     for event in events:
         grouped[event['serverCommandJobId']].append(event)
     for observations in grouped.values():
+        terminal_ids = {e['statusEventId'] for e in observations if e.get('failureEvidence', {}).get('stage') == 'firstSubmissionRejected'}
+        require(len(terminal_ids) <= 1, 'REJECTION_EVENT_REASSIGNMENT')
         for first in observations:
             failure = first.get('failureEvidence', {})
             if failure.get('stage') != 'firstSubmissionRejected':
@@ -478,6 +480,7 @@ def transcript(value, commands):
         require(actor == c['routeSnapshot']['orderedAgentIds'][0], 'ROOT_SEQUENCE_OWNER')
         event_key = (actor, job, event['statusEventId'])
         require(event_key in events, 'OBSERVE_BEFORE_SEQUENCE')
+        rejection_facts([event] + [body['event'] for (j, _), body in outbox.items() if j == job])
         identity_key = (job, event['statusEventId'])
         if identity_key in root_events:
             require(root_events[identity_key] == sequence, 'EVENT_SEQUENCE_REASSIGNMENT')

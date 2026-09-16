@@ -15,6 +15,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Review corrections
 
+- Enforce one stable statusEventId for a U first-submission rejection across source/relay/Root allocation and all retained Server receipts; reject proof replay under a new event ID while preserving exact replay and normal distinct observations.
+
 - Cross-check first-rejection proofs against durable child/descendant acceptance and parent-visible status; reject contradictions with available versions or physical progress across all retained Server receipts atomically in any arrival order. Preserve normal child acceptance/query reconciliation.
 
 - Add a distinct firstSubmissionRejected U proof for the parent's first known-unaccepted Agent request: retain true submission state, complete write-ahead attempt/authenticated-response journal, immutable terminal proof alongside original acceptance, and exact request/response/route correlation. Propagate verified failed/notObserved status through relay, Root and Server history without inventing child receipts or versions. Extend F4 through the full wire path and reject uncertainty/retry/forged-proof cases; coordinate reviewed Contract → Server → Agent pins within this unpublished 2.2.0 additive minor delivery.

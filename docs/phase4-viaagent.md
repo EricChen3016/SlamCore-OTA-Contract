@@ -421,7 +421,13 @@ terminal proof snapshot, stable failure event/outbox and terminal obligation bef
 upstream delivery or local terminal completion. A crash after the response record
 but before this final transaction resumes proof/event creation from those retained
 facts. After a verified response was durably retained, restart never dispatches a
-second mutation; it completes or reuses the same terminal proof and stable event. Original
+second mutation; it completes or reuses the same terminal proof and stable event.
+For one U, this terminal failure has exactly one statusEventId: reusing its proof,
+receipt or rejection outcome under a new event ID is not a new observation. Source,
+relay and Root must retain that binding; Root reuses its original body/sequence/key.
+Server validates it against all retained receipts before committing, independent of
+arrival order or latest projection. Normal distinct observations outside this terminal
+failure variant retain their existing allocation and late/replay rules. Original
 acceptance replay remains available throughout.
 
 `rejectionProofHash` is SHA-256 of section 3 canonical JSON of the complete proof,

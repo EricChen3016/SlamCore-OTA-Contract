@@ -43,7 +43,7 @@ def propagate():
 
 
 def run(report_error):
-    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest, child_acceptance_contradiction, retained_progress_contradiction]
+    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest, child_acceptance_contradiction, retained_progress_contradiction, stable_rejection_event]
     for check in checks:
         try:
             check()
@@ -306,3 +306,58 @@ def retained_progress_contradiction():
     next_proof = copy.deepcopy(proof);next_proof['sequence']=1
     rejected('REJECTION_KNOWN_PROGRESS',lambda:p.root_status(next_proof,command,progress))
     rejected('REJECTION_KNOWN_PROGRESS',lambda:p.status(next_proof['event'],command,('agent','A1'),('server','server-1'),known))
+
+
+def stable_rejection_event():
+    steps, command, original = traced_rejection()
+    duplicate = copy.deepcopy(original)
+    duplicate['event']['statusEventId'] = 'event-U3-A2-first-rejection-duplicate'
+    for reverse in (False, True):
+        for second_sequence in (0, 3, 7):
+            first, second = (duplicate, original) if reverse else (original, duplicate)
+            first, second = copy.deepcopy(first), copy.deepcopy(second)
+            first['sequence'] = 2;second['sequence'] = second_sequence
+            receipts = {};latest = p.server_ingest(first,command,receipts)
+            before = copy.deepcopy((receipts,latest))
+            rejected('REJECTION_EVENT_REASSIGNMENT',lambda:p.server_ingest(second,command,receipts,latest))
+            rejected('REJECTION_EVENT_REASSIGNMENT',lambda:p.server_ingest(second,command,receipts))
+            assert (receipts,latest) == before
+            assert p.server_ingest(copy.deepcopy(first),command,receipts,latest) == latest
+    duplicate['sequence'] = 1
+    rejected('REJECTION_EVENT_REASSIGNMENT',lambda:p.root_status(duplicate,command,original))
+    rejected('REJECTION_EVENT_REASSIGNMENT',lambda:p.status(duplicate['event'],command,('agent','A1'),('server','server-1'),original['event']))
+    # Crash/restart cannot mint a new local event for the persisted terminal proof.
+    changed = copy.deepcopy(steps)
+    extra = copy.deepcopy(next(x for x in steps if x['action']=='observe'))
+    extra['event']['statusEventId'] = duplicate['event']['statusEventId']
+    changed.insert(next(i for i,x in enumerate(changed) if x['action']=='terminalize'),extra)
+    rejected('REJECTION_EVENT_REASSIGNMENT',lambda:p.transcript(dict(steps=changed),{'U3':command}))
+    for restart in (False, True):
+        changed = copy.deepcopy(steps)
+        if restart:
+            retained = copy.deepcopy(next(x for x in steps if x['action']=='restart' and x['actor']=='A2'))
+            retained['retainedEvents'] = [['U3',original['event']['statusEventId']]]
+            changed.append(retained)
+        changed.append(copy.deepcopy(extra))
+        rejected('REJECTION_EVENT_REASSIGNMENT',lambda:p.transcript(dict(steps=changed),{'U3':command}))
+    # Root must reuse the same allocated sequence for the original event ID.
+    changed = copy.deepcopy(steps)
+    changed.append(dict(action='allocate',actor='A1',job='U3',eventId=original['event']['statusEventId'],sequence=1))
+    rejected('EVENT_SEQUENCE_REASSIGNMENT',lambda:p.transcript(dict(steps=changed),{'U3':command}))
+    changed[-1]['sequence'] = 0
+    p.transcript(dict(steps=changed),{'U3':command})
+    p.root_status(copy.deepcopy(original),command,original)
+    # Normal observations are still distinct: installing then completed gets two
+    # event IDs and sequences, with normal late/exact replay behavior on Server.
+    event = next(x['event'] for x in load('durable-transcript.json')['steps'] if x['action']=='observe' and x['job']=='U3')
+    event['hopContext'] = p.expected_hop(command['routeSnapshot'],'U3','upstream',0)
+    completed = dict(event=event,sequence=1,rootAgentId='A1')
+    installing = copy.deepcopy(completed);installing['sequence']=0
+    installing['event'].update(state='installing',statusEventId='event-U3-distinct-installing')
+    installing['event']['physicalEvidence'] = installing['event']['physicalEvidence'][:2]
+    p.root_status(completed,command,installing)
+    for inputs in ((installing,completed),(completed,installing)):
+        receipts = {};latest = None
+        for body in inputs: latest = p.server_ingest(body,command,receipts,latest)
+        assert latest == completed and len(receipts)==2
+        assert p.server_ingest(copy.deepcopy(inputs[0]),command,receipts,latest)==completed

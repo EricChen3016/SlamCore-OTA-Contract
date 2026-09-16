@@ -58,7 +58,7 @@ All references below are within this repository. `phase4-viaagent` means the nor
 
 ## Validation evidence and limits
 
-Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **32 positive schema mappings, 33 semantic checks, 130 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations, 17 independent-review regression groups and 6 first-rejection regression groups**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
+Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **32 positive schema mappings, 33 semantic checks, 130 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations, 17 independent-review regression groups and 7 first-rejection regression groups**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
 
 The positive N-hop transcript contains **2 logical commands (U3/R3), 6 Agent durable obligations, 12 downstream command delivery attempts, and 8 upstream status relay attempts**. For activation and explicitRollback separately: invoked=1, activationStarted intent=1, completed=1, confirmedPhysicalStarts=1, unresolvedPhysicalStarts=0. Automatic recovery is a separate raw fixture for failed U-recovery. An intent-only crash has confirmedPhysicalStarts=0, unresolvedPhysicalStarts=1 and snapshotProven=false / operationLifetimeProven=false even when its journal page is complete. These numbers describe the fixtures, not a device.
 
@@ -260,14 +260,18 @@ history. The valid scenario has 1 logical U, 2 durable Agent obligations, 2 comm
 deliveries, 2 status relay attempts, no pending status after ACK, and no observed
 physical phases. These are synthetic facts, not HIL/production evidence.
 
-Six first-rejection groups cover wire/history and preserved acceptance snapshots;
+Seven first-rejection groups cover wire/history and preserved acceptance snapshots;
 all four allowed 409/422 responses through actual journal/relay/restart/outage traces;
 source-trace rejection cases plus legal uncertain query/replay; and conflicting
-proof/atomic Server rejection/Unicode evidence preservation. The final two groups
+proof/atomic Server rejection/Unicode evidence preservation. The fifth and sixth groups
 reject child acceptance before/during/after send, actual child physical/status facts
 and parent-visible child completion, while retaining normal acceptance/query recovery;
 and atomically reject first proof versus available/physical progress across every
 retained receipt in either order, including stale/gap/late and no latest projection.
+The seventh group rejects a second event ID for the same terminal first-rejection
+outcome across source/relay/Root and Server, including reversed/stale/gap/late arrivals,
+no latest projection, and atomic receipt preservation. Original event/body/sequence
+replay and normal distinct installing/completed observations remain valid.
 A source cannot certify
 an unknown/retried/accepted send by merely supplying a complete=true proof. Server
 validates projected bindings through trusted relays; it cannot read a remote journal.
