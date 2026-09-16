@@ -538,6 +538,9 @@ def transcript(value, commands):
         c = commands[job]
         route_agents = c['routeSnapshot']['orderedAgentIds']
         require(actor in route_agents, 'TRACE_ACTOR')
+        if action in ('journalSubmission', 'forward', 'downstreamAccepted'):
+            require(not any(a == actor and j == job and e.get('failureEvidence', {}).get('agentId') == actor
+                            for (a, j, _), e in events.items()), 'REJECTION_AFTER_TERMINAL')
         if action == 'commit':
             require(key not in rejected_downstream, 'REJECTION_DOWNSTREAM_ACCEPTED')
             require(item['fingerprint'] == command_fingerprint(c) and item['routeSnapshotHash'] == c['routeSnapshot']['routeSnapshotHash'], 'DURABLE_FINGERPRINT')
@@ -654,6 +657,8 @@ def transcript(value, commands):
                     failure = event['failureEvidence']
                     if failure['stage'] == 'neverForwarded':
                         require(key not in submitted and key not in attempt_journals, 'FAILURE_AFTER_SUBMISSION')
+                        descendants = {(agent, job) for agent in route_agents[route_agents.index(actor) + 1:]}
+                        require(not descendants.intersection(durable), 'REJECTION_DOWNSTREAM_ACCEPTED')
                     else:
                         require(key in submitted and key in terminal_verified and key not in unknown, 'REJECTION_OUTCOME_UNVERIFIED')
                         proof = failure['rejectionProof']
@@ -664,6 +669,8 @@ def transcript(value, commands):
                 own_index = route_agents.index(actor)
                 receiver = ('server', c['routeSnapshot']['serverId']) if own_index == 0 else ('agent', route_agents[own_index - 1])
                 status(event, c, ('agent', actor), receiver)
+                if 'failureEvidence' in event:
+                    rejected_downstream.update((agent, job) for agent in route_agents[own_index + 1:])
                 require(source_key not in sources or sources[source_key] == fp, 'STATUS_EVENT_CONFLICT')
                 sources[source_key] = fp
             else:

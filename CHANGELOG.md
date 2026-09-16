@@ -15,6 +15,8 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Review corrections
 
+- Validate neverForwarded against retained descendant obligations before proof creation; preserve no-execution exclusions after ACK/restart, rejecting later descendant acceptance or originating write-ahead/forward/acceptance while retaining exact acceptance/status replay.
+
 - Generalize no-execution proof integrity to neverForwarded and firstSubmissionRejected: one origin/receipt/stage and stable terminal event per U, rejecting contradictory ancestor/descendant proofs. Enforce terminal allocation order across all retained Server receipts and Root outbox, while allowing stale lower active observations and exact replay.
 
 - Enforce one stable statusEventId for a U first-submission rejection across source/relay/Root allocation and all retained Server receipts; reject proof replay under a new event ID while preserving exact replay and normal distinct observations.

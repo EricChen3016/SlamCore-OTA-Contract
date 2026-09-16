@@ -43,7 +43,7 @@ def propagate():
 
 
 def run(report_error):
-    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest, child_acceptance_contradiction, retained_progress_contradiction, stable_rejection_event, no_execution_integrity, retained_terminal_order]
+    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest, child_acceptance_contradiction, retained_progress_contradiction, stable_rejection_event, no_execution_integrity, retained_terminal_order, never_forwarded_source_lifecycle]
     for check in checks:
         try:
             check()
@@ -398,7 +398,7 @@ def no_execution_integrity():
     steps,_,_=traced_rejection()
     prefix=copy.deepcopy(steps[:9])
     prefix.insert(1,dict(action='observe',actor='A1',job='U3',event=ancestor['event'],sequence=0))
-    rejected('REJECTION_FAILURE_CONFLICT',lambda:p.transcript(dict(steps=prefix),{'U3':command}))
+    rejected('REJECTION_AFTER_TERMINAL',lambda:p.transcript(dict(steps=prefix),{'U3':command}))
 
 
 def retained_terminal_order():
@@ -440,3 +440,46 @@ def retained_terminal_order():
     trace['steps'] += [dict(action='forwardEvent',actor='A2',job='U3',event=copy.deepcopy(next_event),idempotencyKey='event:U3:'+next_event['statusEventId']),
                        dict(action='receiveEvent',actor='A1',job='U3',event=copy.deepcopy(next_event),authenticatedPeer=['agent','A2'],sequence=1)]
     rejected('TERMINAL_REGRESSION',lambda:p.transcript(trace,{'U3':command,'R3':load('n-hop-rollback.json')}))
+
+
+def never_forwarded_source_lifecycle():
+    command=load('n-hop-update.json');event=load('update-before-forward-failure.json')
+    fp=p.command_fingerprint(command)
+    acceptance=copy.deepcopy(event['failureEvidence']['originReceipt'])
+    acceptance['obligationState']='pending'
+    body=dict(event=event,sequence=0,rootAgentId='A1')
+    commit=dict(action='commit',actor='A1',job='U3',fingerprint=fp,routeSnapshotHash=command['routeSnapshot']['routeSnapshotHash'],acceptanceReceipt=acceptance)
+    base=[commit,dict(action='observe',actor='A1',job='U3',event=event,sequence=0),
+          dict(action='terminalize',actor='A1',job='U3'),
+          dict(action='sendStatus',actor='A1',job='U3',body=body,sequence=0,fingerprint=p.root_fingerprint(body),idempotencyKey='status:U3:0'),
+          dict(action='ackStatus',actor='A1',job='U3',sequence=0)]
+    result=p.transcript(dict(steps=copy.deepcopy(base)),{'U3':command})
+    assert result['deliveryAttempts']==0 and result['durableObligations']==1 and result['pendingStatus']==0
+    restart=dict(action='restart',actor='A1',retained=['U3'],retainedEvents=[['U3',event['statusEventId']]],retainedUpstreamOutbox=[],retainedRootOutbox=[],retainedAcceptances=[acceptance],retainedAttemptJournals=[])
+    retained=copy.deepcopy(base)+[restart]
+    p.transcript(dict(steps=retained),{'U3':command})
+    for actor in ('A2','A3'):
+        child=dict(action='commit',actor=actor,job='U3',fingerprint=fp,routeSnapshotHash=command['routeSnapshot']['routeSnapshotHash'])
+        for prefix,suffix in ((base[:1],base[1:]),(base,[]),(retained,[])):
+            steps=copy.deepcopy(prefix)+[child]+copy.deepcopy(suffix)
+            rejected('REJECTION_DOWNSTREAM_ACCEPTED',lambda:p.transcript(dict(steps=steps),{'U3':command}))
+    # Restart cannot erase a descendant accepted before proof creation, nor the
+    # terminal source event after proof creation.
+    early_restart=copy.deepcopy(restart);early_restart['retainedEvents']=[]
+    child=dict(action='commit',actor='A2',job='U3',fingerprint=fp,routeSnapshotHash=command['routeSnapshot']['routeSnapshotHash'])
+    steps=copy.deepcopy(base[:1])+[child,early_restart]+copy.deepcopy(base[1:])
+    rejected('REJECTION_DOWNSTREAM_ACCEPTED',lambda:p.transcript(dict(steps=steps),{'U3':command}))
+    lost_proof=copy.deepcopy(retained);lost_proof[-1]['retainedEvents']=[]
+    rejected('STATUS_RESTART_DURABILITY',lambda:p.transcript(dict(steps=lost_proof),{'U3':command}))
+    forward=copy.deepcopy(traced_rejection()[0][1])
+    accepted=dict(action='downstreamAccepted',actor='A1',job='U3',fingerprint=fp)
+    record=copy.deepcopy(load('first-submission-rejected-event.json')['failureEvidence']['rejectionProof']['records'][0])
+    record['request']['hopContext']=p.expected_hop(command['routeSnapshot'],'U3','downstream',1)
+    journal=dict(action='journalSubmission',actor='A1',job='U3',journalId='A1-after-never',record=record)
+    for prefix in (base,retained):
+        for operation in (forward,accepted,journal):
+            steps=copy.deepcopy(prefix)+[operation]
+            rejected('REJECTION_AFTER_TERMINAL',lambda:p.transcript(dict(steps=steps),{'U3':command}))
+        # Retention still permits exact original acceptance and status replay.
+        replay=copy.deepcopy(prefix)+[dict(action='replayAcceptance',actor='A1',job='U3',receipt=acceptance),copy.deepcopy(base[3]),copy.deepcopy(base[4])]
+        assert p.transcript(dict(steps=replay),{'U3':command})['deliveryAttempts']==0

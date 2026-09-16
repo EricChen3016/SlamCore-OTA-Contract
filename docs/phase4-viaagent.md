@@ -454,6 +454,14 @@ The two stages cannot coexist even at the same origin. Such proofs also cannot c
 with known Updater versions or physical progress. Exact replay of a single legitimate
 neverForwarded proof remains valid. Status/Root/Server and complete source-trace checks
 apply these exclusions across all retained observations, not only latest.
+Before originating neverForwarded, the complete source trace must also have no
+retained obligation for any downstream descendant of that origin. Once either
+no-execution proof is committed, no descendant may accept that U later. The originating
+Agent may not append a new submission reservation, forward a mutation or record a
+contradictory downstream acceptance after its immutable failure event. Restart retains
+the source event/dedupe and these exclusions; ACK does not discard them. Replaying
+original acceptance/status bytes is still valid and never dispatches new downstream
+work. These checks cover durable source facts even when no second status exists.
 
 A first-rejection proof is incompatible with already known child acceptance or U
 progress. The complete source trace MUST reject a child (or downstream descendant)
