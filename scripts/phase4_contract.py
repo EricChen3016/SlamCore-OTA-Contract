@@ -66,8 +66,11 @@ def command_fingerprint(command):
 def event_fingerprint(event):
     # Human messages can be Unicode. Hash its UTF-8 bytes as lowercase hex before
     # canonical JSON, a fixed transform that preserves every byte of the message.
-    value = {k: v for k, v in event.items() if k != 'hopContext'}
+    value = copy.deepcopy({k: v for k, v in event.items() if k != 'hopContext'})
     value['message'] = value['message'].encode('utf-8').hex()
+    if value.get('failureEvidence', {}).get('stage') == 'firstSubmissionRejected':
+        failure = value['failureEvidence']
+        failure['rejectionProof'] = encoded_rejection_proof(failure['rejectionProof'])
     return digest(value)
 
 
@@ -238,13 +241,54 @@ def status(value, obligation, authenticated_peer, local_peer, previous=None):
         require(source_index >= value['hopContext']['hopIndex'], 'FAILURE_EVIDENCE_AUTHORITY')
         require(failure_receipt['command']['hopContext'] == expected_hop(obligation['routeSnapshot'], obligation['serverCommandJobId'], 'downstream', source_index), 'FAILURE_EVIDENCE_AUTHORITY')
         require(failure_receipt['command']['hopContext']['receiverId']==value['failureEvidence']['agentId'], 'FAILURE_EVIDENCE_AUTHORITY')
-        require(failure_receipt['receiptId']==value['failureEvidence']['obligationReceiptId'] and failure_receipt['serverCommandJobId']==obligation['serverCommandJobId'] and failure_receipt['semanticFingerprint']==command_fingerprint(obligation) and failure_receipt['downstreamEverSubmitted'] is False and failure_receipt['obligationState']=='terminal', 'FAILURE_AFTER_SUBMISSION')
+        require(failure_receipt['receiptId']==value['failureEvidence']['obligationReceiptId'] and failure_receipt['serverCommandJobId']==obligation['serverCommandJobId'] and failure_receipt['semanticFingerprint']==command_fingerprint(obligation) and failure_receipt['obligationState']=='terminal', 'FAILURE_AFTER_SUBMISSION')
+        if value['failureEvidence']['stage'] == 'neverForwarded':
+            require(failure_receipt['downstreamEverSubmitted'] is False, 'FAILURE_AFTER_SUBMISSION')
+        else:
+            first_rejection(value, obligation)
     for item in value['physicalEvidence']:
         projected_evidence(item, obligation)
     known = value['physicalEvidence'] + (previous['physicalEvidence'] if previous else [])
     evidence_facts([item['source'] for item in known])
     if previous and value['statusEventId'] == previous['statusEventId']:
         require(event_fingerprint(value) == event_fingerprint(previous), 'STATUS_EVENT_CONFLICT')
+
+
+def encoded_rejection_proof(proof):
+    """Preserve ErrorResponse text bytes in the ASCII canonical hash domain."""
+    body = copy.deepcopy(proof)
+    for name in ('type', 'title', 'detail'):
+        body['records'][1]['response'][name] = body['records'][1]['response'][name].encode('utf-8').hex()
+    return body
+
+
+def rejection_proof_hash(proof):
+    return digest(encoded_rejection_proof(proof))
+
+
+def first_rejection(value, obligation):
+    """Check the projected first known-unaccepted Agent response, not local DB truth."""
+    failure = value['failureEvidence']
+    proof = failure['rejectionProof']
+    require(rejection_proof_hash(proof) == failure['rejectionProofHash'], 'REJECTION_PROOF_HASH')
+    receipt_value = failure['originReceipt']
+    require(receipt_value['downstreamEverSubmitted'] is True, 'REJECTION_SUBMISSION')
+    agents = obligation['routeSnapshot']['orderedAgentIds']
+    index = agents.index(failure['agentId'])
+    require(index + 1 < len(agents), 'REJECTION_CHILD')
+    require(proof['parentAgentId'] == failure['agentId'] and proof['childAgentId'] == agents[index + 1], 'REJECTION_CHILD')
+    require(proof['obligationReceiptId'] == failure['obligationReceiptId'], 'REJECTION_OBLIGATION')
+    submission, rejection = proof['records']
+    request = submission['request']
+    require(command_fingerprint(request) == submission['requestFingerprint'] == command_fingerprint(obligation), 'REJECTION_REQUEST')
+    require(request['hopContext'] == expected_hop(obligation['routeSnapshot'], obligation['serverCommandJobId'], 'downstream', index + 1), 'REJECTION_HOP')
+    require(submission['idempotencyKey'] == 'command:' + obligation['serverCommandJobId'], 'REJECTION_KEY')
+    require(rejection['authenticatedChildAgentId'] == proof['childAgentId'], 'REJECTION_CHILD')
+    response = rejection['response']
+    error_correlation(response, submission['correlationId'])
+    allowed = {('STALE_ROUTE', 409), ('ROUTE_MISMATCH', 409), ('INVALID_ADJACENCY', 409), ('CAPABILITY_MISMATCH', 422)}
+    require(response['status'] == rejection['httpStatus'] and (response['code'], response['status']) in allowed and response['retryable'] is False and value['errorCode'] == response['code'], 'REJECTION_RESPONSE')
+    require(receipt_value['acceptedAtUtc'] <= submission['recordedAtUtc'] < obligation['expiresAtUtc'] and submission['recordedAtUtc'] <= rejection['recordedAtUtc'] <= value['observedAtUtc'], 'REJECTION_TIME')
 
 
 def root_status(value, obligation, previous=None):
@@ -392,6 +436,9 @@ def error_correlation(value, triggering_header):
 def root_fingerprint(value):
     body = copy.deepcopy(value)
     body['event']['message'] = body['event']['message'].encode('utf-8').hex()
+    if body['event'].get('failureEvidence', {}).get('stage') == 'firstSubmissionRejected':
+        failure = body['event']['failureEvidence']
+        failure['rejectionProof'] = encoded_rejection_proof(failure['rejectionProof'])
     return digest(body)
 
 
@@ -404,6 +451,7 @@ def transcript(value, commands):
     attempts, status_attempts, server_online = 0, 0, True
     rollback_by_u = {}
     submission_counts, terminal_verified = defaultdict(int), set()
+    acceptance_bodies, attempt_journals = {}, {}
 
     def root_commit(actor, job, event, sequence):
         c = commands[job]
@@ -443,7 +491,9 @@ def transcript(value, commands):
             continue
         if action == 'restart':
             actor = item['actor']
-            unknown.update(key for key in submitted if key[0] == actor)
+            unknown.update(key for key in submitted | set(attempt_journals) if key[0] == actor and key not in terminal_verified)
+            require(item.get('retainedAcceptances', []) == [r for (a, j), r in sorted(acceptance_bodies.items()) if a == actor], 'ACCEPTANCE_RESTART')
+            require(item.get('retainedAttemptJournals', []) == [dict(job=j, **r) for (a, j), r in sorted(attempt_journals.items()) if a == actor], 'REJECTION_JOURNAL_RESTART')
             require(item['retained'] == sorted(j for a, j in durable if a == actor), 'RESTART_DURABILITY')
             require(item.get('retainedEvents', []) == sorted([j, e] for a, j, e in events if a == actor), 'STATUS_RESTART_DURABILITY')
             require(item.get('retainedUpstreamOutbox', []) == sorted([j, e] for a, j, e in upstream_pending if a == actor), 'STATUS_OUTBOX_RESTART')
@@ -462,6 +512,23 @@ def transcript(value, commands):
                 require(u not in rollback_by_u or rollback_by_u[u] == job, 'SECOND_ROLLBACK')
                 rollback_by_u[u] = job
             durable[key] = item['fingerprint']
+            if 'acceptanceReceipt' in item:
+                original = item['acceptanceReceipt']
+                receipt(original)
+                require(original['semanticFingerprint'] == durable[key] and original['command']['hopContext'] == expected_hop(c['routeSnapshot'], job, 'downstream', route_agents.index(actor)), 'REJECTION_OBLIGATION')
+                require(original['obligationState'] == 'pending' and original['downstreamEverSubmitted'] is False, 'ACCEPTANCE_SNAPSHOT')
+                require(key not in acceptance_bodies or acceptance_bodies[key] == original, 'ACCEPTANCE_REPLAY')
+                acceptance_bodies[key] = copy.deepcopy(original)
+        elif action == 'replayAcceptance':
+            require(key in acceptance_bodies and item['receipt'] == acceptance_bodies[key], 'ACCEPTANCE_REPLAY')
+        elif action == 'journalSubmission':
+            require(key in durable and key in acceptance_bodies, 'REJECTION_WITHOUT_ACCEPTANCE')
+            require(key not in terminal_verified, 'REJECTION_AFTER_TERMINAL')
+            journal = attempt_journals.setdefault(key, dict(journalId=item['journalId'], records=[]))
+            require(journal['journalId'] == item['journalId'], 'REJECTION_JOURNAL_REWRITE')
+            record = item['record']
+            require(record['kind'] == 'submission' and record['journalSequence'] == len(journal['records']) + 1 and record['attemptOrdinal'] == submission_counts[key] + 1, 'REJECTION_JOURNAL')
+            journal['records'].append(copy.deepcopy(record))
         elif action in ('forward', 'ack'):
             require(key in durable, 'WRITE_BEFORE_FORWARD' if action == 'forward' else 'WRITE_BEFORE_ACK')
             if action == 'forward':
@@ -473,6 +540,14 @@ def transcript(value, commands):
                 require(item['payload'] == c['payload'], 'UPDATER_PROJECTION')
                 expected_key = ('rollback:' + c['updaterJobId'] if c['commandType'] == 'rollback' else c['updaterJobId']) if wanted['receiverKind'] == 'updater' else 'command:' + job
                 require(item['idempotencyKey'] == expected_key, 'COMMAND_KEY')
+                if key in attempt_journals:
+                    require(key not in terminal_verified, 'REJECTION_AFTER_TERMINAL')
+                    records = attempt_journals[key]['records']
+                    record = records[-1]
+                    require(record['kind'] == 'submission' and record['attemptOrdinal'] == submission_counts[key] + 1, 'REJECTION_JOURNAL')
+                    actual_request = copy.deepcopy(c)
+                    actual_request['hopContext'] = wanted
+                    require(record['request'] == actual_request and record['requestFingerprint'] == item['fingerprint'] and record['idempotencyKey'] == item['idempotencyKey'] and record['correlationId'] == item.get('correlationId') and record['recordedAtUtc'] <= item['atUtc'], 'REJECTION_REQUEST')
                 submitted.add(key)
                 queried.discard(key)
                 attempts += 1
@@ -481,12 +556,18 @@ def transcript(value, commands):
             require(key in submitted, 'ACCEPT_WITHOUT_SUBMISSION')
             require(item['fingerprint'] == durable[key], 'ACCEPTANCE_FINGERPRINT')
             downstream_acceptances.add(key)
+            if key in attempt_journals:
+                attempt_journals[key]['records'].append(dict(kind='accepted', journalSequence=len(attempt_journals[key]['records']) + 1))
         elif action == 'responseLost':
             require(key in submitted, 'LOSS_WITHOUT_SUBMISSION')
             unknown.add(key)
+            if key in attempt_journals:
+                attempt_journals[key]['records'].append(dict(kind='unknown', journalSequence=len(attempt_journals[key]['records']) + 1))
         elif action == 'query':
             require(key in unknown, 'QUERY_WITHOUT_UNCERTAINTY')
             queried.add(key)
+            if key in attempt_journals:
+                attempt_journals[key]['records'].append(dict(kind='query', journalSequence=len(attempt_journals[key]['records']) + 1, result=item['result']))
             require(item['result'] in ('404', 'accepted', 'terminal', 'unavailable'), 'QUERY_RESULT')
             if item['result'] in ('accepted', 'terminal'):
                 require(item['receiptFingerprint'] == durable[key], 'ACCEPTANCE_FINGERPRINT')
@@ -500,11 +581,24 @@ def transcript(value, commands):
             require(item['requestFingerprint'] == durable[key], 'REPLAY_PAYLOAD')
             shape('error-response', item['response'])
             require(item['response']['status'] in (400, 401, 403, 404, 409, 422) and item['response']['retryable'] is False, 'REJECTION_NOT_DEFINITIVE')
+            require(key in attempt_journals, 'REJECTION_JOURNAL')
+            records = attempt_journals[key]['records']
+            require(len(records) == 1, 'REJECTION_JOURNAL')
+            require(route_agents.index(actor) + 1 < len(route_agents), 'REJECTION_CHILD')
+            child = route_agents[route_agents.index(actor) + 1]
+            require(item.get('authenticatedPeer') == ['agent', child], 'REJECTION_CHILD')
+            record = item['record']
+            require(record['kind'] == 'rejection' and record['journalSequence'] == 2 and record['attemptOrdinal'] == 1 and record['authenticatedChildAgentId'] == child and record['httpStatus'] == item.get('httpStatus') == item['response']['status'] and record['response'] == item['response'] and record['recordedAtUtc'] == item['atUtc'], 'REJECTION_RESPONSE')
+            error_correlation(item['response'], records[0]['correlationId'])
+            require((item['response']['code'], item['response']['status']) in {('STALE_ROUTE',409),('ROUTE_MISMATCH',409),('INVALID_ADJACENCY',409),('CAPABILITY_MISMATCH',422)}, 'REJECTION_RESPONSE')
+            records.append(copy.deepcopy(record))
             terminal_verified.add(key)
         elif action == 'terminalize':
             require(key in durable, 'TERMINAL_WITHOUT_OBLIGATION')
             require(key not in unknown, 'UNKNOWN_TERMINAL')
             require(key not in submitted or key in terminal_verified, 'TERMINAL_OUTCOME_UNVERIFIED')
+            if key in attempt_journals:
+                require(any(a == actor and j == job and e['state'] in ('completed','failed','rolled_back') for (a, j, _), e in events.items()), 'REJECTION_EVENT_MISSING')
         elif action in ('observe', 'receiveEvent'):
             require(key in durable, 'OBSERVATION_WITHOUT_OBLIGATION')
             event = item['event']
@@ -517,7 +611,16 @@ def transcript(value, commands):
                 origin = event.get('failureEvidence', {}).get('agentId', route_agents[-1])
                 require(actor == origin, 'STATUS_ORIGIN')
                 if 'failureEvidence' in event:
-                    require(key not in submitted, 'FAILURE_AFTER_SUBMISSION')
+                    failure = event['failureEvidence']
+                    if failure['stage'] == 'neverForwarded':
+                        require(key not in submitted and key not in attempt_journals, 'FAILURE_AFTER_SUBMISSION')
+                    else:
+                        require(key in submitted and key in terminal_verified and key not in unknown, 'REJECTION_OUTCOME_UNVERIFIED')
+                        proof = failure['rejectionProof']
+                        require(key in attempt_journals and dict(journalId=proof['journalId'], records=proof['records']) == attempt_journals[key], 'REJECTION_JOURNAL')
+                        terminal = copy.deepcopy(acceptance_bodies[key])
+                        terminal.update(obligationState='terminal', downstreamEverSubmitted=True)
+                        require(failure['originReceipt'] == terminal, 'REJECTION_OBLIGATION')
                 own_index = route_agents.index(actor)
                 receiver = ('server', c['routeSnapshot']['serverId']) if own_index == 0 else ('agent', route_agents[own_index - 1])
                 status(event, c, ('agent', actor), receiver)

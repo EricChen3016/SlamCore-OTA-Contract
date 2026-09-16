@@ -53,6 +53,8 @@ def check_case(check, value, base):
         p.evidence_counts(value)
     elif check == 'updateFailure':
         p.status(value, update, ('agent','A1'), ('server','server-1'))
+    elif check == 'firstRejection':
+        p.status(value, update, ('agent','A2'), ('agent','A1'))
     elif check == 'migration':
         p.legacy_migration(value)
     elif check == 'receipt':
@@ -84,6 +86,7 @@ def run(report_error):
     mappings.update({top+'-'+kind+'.json':'routed-command' for top in ['single-hop','branching','n-hop'] for kind in ['update','rollback']})
     mappings.update({'update-before-forward-failure.json':'routed-status-event','intent-only-evidence-page.json':'raw-evidence-page','never-forwarded-receipt.json':'command-receipt','leaf-before-forward-failure.json':'routed-status-event','never-forwarded-history.json':'history-page'})
     mappings.update({'error-correlation-'+case+'.json':'error-response' for case in ('lowercase','mixedcase','uppercase')})
+    mappings.update({'first-submission-rejected-event.json':'routed-status-event', 'first-submission-rejected-history.json':'history-page', 'first-submission-original-acceptance.json':'command-receipt', 'first-submission-rejected-root-status.json':'root-status'})
     for name, schema in mappings.items():
         test(name, lambda n=name,s=schema: p.shape(s, load(n)))
         counts['schema'] += 1
@@ -155,6 +158,10 @@ def run(report_error):
                 value['evidenceSource']['recordSha256']=p.source_hash(value)
             if c.get('rehashSources'):
                 for r in value:r['evidenceSource']['recordSha256']=p.source_hash(r)
+            if c.get('rehashRejection'):
+                failure = value['failureEvidence']
+                failure['originReceiptHash'] = p.digest(failure['originReceipt'])
+                failure['rejectionProofHash'] = p.rejection_proof_hash(failure['rejectionProof'])
             try:
                 check_case(c['check'],value,baseline)
             except p.Violation as exc:
@@ -283,5 +290,7 @@ def run(report_error):
     test('OpenAPI references headers examples',openapi)
     from validate_phase4_review import run as review_regressions
     counts['reviewRegressions'] = review_regressions(report_error)
+    from validate_phase4_first_rejection import run as first_rejection_regressions
+    counts['firstRejectionRegressions'] = first_rejection_regressions(report_error)
     print('Phase 4 validation counts: '+json.dumps(counts,sort_keys=True))
     return counts

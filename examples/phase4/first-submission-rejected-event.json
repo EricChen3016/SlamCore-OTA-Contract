@@ -1,0 +1,326 @@
+{
+  "contractVersion": "2.0",
+  "commandType": "update",
+  "serverCommandJobId": "U3",
+  "originalUpdateJobId": null,
+  "updaterJobId": "U3",
+  "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+  "targetDeviceId": "D3",
+  "routeSnapshot": {
+    "routeId": "route-D3",
+    "routeVersion": 1,
+    "topologyVersion": 1,
+    "serverId": "server-1",
+    "targetDeviceId": "D3",
+    "targetUpdaterId": "P3",
+    "orderedAgentIds": [
+      "A1",
+      "A2",
+      "A3"
+    ],
+    "capabilitySnapshot": {
+      "agents": [
+        {
+          "agentId": "A1",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A1"
+        },
+        {
+          "agentId": "A2",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A2"
+        },
+        {
+          "agentId": "A3",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A3"
+        }
+      ],
+      "updater": {
+        "updaterId": "P3",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "physical-operation-evidence-v1"
+        ],
+        "evidenceId": "capability-P3"
+      },
+      "device": {
+        "deviceId": "D3",
+        "capabilities": [
+          "explicit-rollback-v1"
+        ],
+        "registrationEventId": "device-registration-D3"
+      }
+    },
+    "createdAtUtc": "2026-09-15T00:00:00Z",
+    "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+  },
+  "statusEventId": "event-U3-A2-first-rejection",
+  "hopContext": {
+    "hopIndex": 1,
+    "direction": "upstream",
+    "senderKind": "agent",
+    "senderId": "A2",
+    "receiverKind": "agent",
+    "receiverId": "A1",
+    "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+    "hopId": "fd96c562af6f62404a85b8251ce5392dff8fd34ed5d2b683d848845dd5135081"
+  },
+  "state": "failed",
+  "progressPercent": 0,
+  "message": "The first child submission was rejected before acceptance.",
+  "errorCode": "STALE_ROUTE",
+  "versionEvidence": {
+    "availability": "notObserved",
+    "fromVersion": null,
+    "targetVersion": null
+  },
+  "observedAtUtc": "2026-09-15T00:00:07Z",
+  "physicalEvidence": [],
+  "failureEvidence": {
+    "stage": "firstSubmissionRejected",
+    "agentId": "A2",
+    "obligationReceiptId": "receipt-U3-A2",
+    "originReceipt": {
+      "contractVersion": "2.0",
+      "serverCommandJobId": "U3",
+      "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+      "semanticFingerprint": "099a8fc8967b634615b4e212e2403212b6d3e0d1483d24fd8d4d978a182f196d",
+      "acceptedAtUtc": "2026-09-15T00:00:04Z",
+      "obligationState": "terminal",
+      "command": {
+        "contractVersion": "2.0",
+        "commandType": "update",
+        "serverCommandJobId": "U3",
+        "originalUpdateJobId": null,
+        "updaterJobId": "U3",
+        "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+        "targetDeviceId": "D3",
+        "routeSnapshot": {
+          "routeId": "route-D3",
+          "routeVersion": 1,
+          "topologyVersion": 1,
+          "serverId": "server-1",
+          "targetDeviceId": "D3",
+          "targetUpdaterId": "P3",
+          "orderedAgentIds": [
+            "A1",
+            "A2",
+            "A3"
+          ],
+          "capabilitySnapshot": {
+            "agents": [
+              {
+                "agentId": "A1",
+                "contractVersion": "2.0",
+                "capabilities": [
+                  "explicit-rollback-v1",
+                  "hierarchical-relay-v1"
+                ],
+                "registrationEventId": "registration-A1"
+              },
+              {
+                "agentId": "A2",
+                "contractVersion": "2.0",
+                "capabilities": [
+                  "explicit-rollback-v1",
+                  "hierarchical-relay-v1"
+                ],
+                "registrationEventId": "registration-A2"
+              },
+              {
+                "agentId": "A3",
+                "contractVersion": "2.0",
+                "capabilities": [
+                  "explicit-rollback-v1",
+                  "hierarchical-relay-v1"
+                ],
+                "registrationEventId": "registration-A3"
+              }
+            ],
+            "updater": {
+              "updaterId": "P3",
+              "contractVersion": "2.0",
+              "capabilities": [
+                "physical-operation-evidence-v1"
+              ],
+              "evidenceId": "capability-P3"
+            },
+            "device": {
+              "deviceId": "D3",
+              "capabilities": [
+                "explicit-rollback-v1"
+              ],
+              "registrationEventId": "device-registration-D3"
+            }
+          },
+          "createdAtUtc": "2026-09-15T00:00:00Z",
+          "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+        },
+        "requiredCapability": "hierarchical-relay-v1",
+        "createdAtUtc": "2026-09-15T00:00:01Z",
+        "expiresAtUtc": "2026-09-15T00:10:00Z",
+        "payload": {
+          "contractVersion": "2.0",
+          "jobId": "U3",
+          "targetVersion": "1.2.0",
+          "packageUrl": "https://packages.example.test/slamcore-1.2.0.tar.gz",
+          "packageSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "platform": "linux-arm64"
+        },
+        "hopContext": {
+          "hopIndex": 1,
+          "direction": "downstream",
+          "senderKind": "agent",
+          "senderId": "A1",
+          "receiverKind": "agent",
+          "receiverId": "A2",
+          "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+          "hopId": "4555270e017cb4b3b08ec6a62da411463904f59d37ea124e0584474daf6c0426"
+        }
+      },
+      "downstreamEverSubmitted": true,
+      "receiptId": "receipt-U3-A2"
+    },
+    "originReceiptHash": "a0639614c4542e156b33eea0668d23d4954a9b857376277732d1af0e9df87e20",
+    "rejectionProof": {
+      "parentAgentId": "A2",
+      "childAgentId": "A3",
+      "obligationReceiptId": "receipt-U3-A2",
+      "journalId": "attempt-journal-U3-A2",
+      "journalComplete": true,
+      "records": [
+        {
+          "journalSequence": 1,
+          "kind": "submission",
+          "attemptOrdinal": 1,
+          "request": {
+            "contractVersion": "2.0",
+            "commandType": "update",
+            "serverCommandJobId": "U3",
+            "originalUpdateJobId": null,
+            "updaterJobId": "U3",
+            "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+            "targetDeviceId": "D3",
+            "routeSnapshot": {
+              "routeId": "route-D3",
+              "routeVersion": 1,
+              "topologyVersion": 1,
+              "serverId": "server-1",
+              "targetDeviceId": "D3",
+              "targetUpdaterId": "P3",
+              "orderedAgentIds": [
+                "A1",
+                "A2",
+                "A3"
+              ],
+              "capabilitySnapshot": {
+                "agents": [
+                  {
+                    "agentId": "A1",
+                    "contractVersion": "2.0",
+                    "capabilities": [
+                      "explicit-rollback-v1",
+                      "hierarchical-relay-v1"
+                    ],
+                    "registrationEventId": "registration-A1"
+                  },
+                  {
+                    "agentId": "A2",
+                    "contractVersion": "2.0",
+                    "capabilities": [
+                      "explicit-rollback-v1",
+                      "hierarchical-relay-v1"
+                    ],
+                    "registrationEventId": "registration-A2"
+                  },
+                  {
+                    "agentId": "A3",
+                    "contractVersion": "2.0",
+                    "capabilities": [
+                      "explicit-rollback-v1",
+                      "hierarchical-relay-v1"
+                    ],
+                    "registrationEventId": "registration-A3"
+                  }
+                ],
+                "updater": {
+                  "updaterId": "P3",
+                  "contractVersion": "2.0",
+                  "capabilities": [
+                    "physical-operation-evidence-v1"
+                  ],
+                  "evidenceId": "capability-P3"
+                },
+                "device": {
+                  "deviceId": "D3",
+                  "capabilities": [
+                    "explicit-rollback-v1"
+                  ],
+                  "registrationEventId": "device-registration-D3"
+                }
+              },
+              "createdAtUtc": "2026-09-15T00:00:00Z",
+              "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+            },
+            "requiredCapability": "hierarchical-relay-v1",
+            "createdAtUtc": "2026-09-15T00:00:01Z",
+            "expiresAtUtc": "2026-09-15T00:10:00Z",
+            "payload": {
+              "contractVersion": "2.0",
+              "jobId": "U3",
+              "targetVersion": "1.2.0",
+              "packageUrl": "https://packages.example.test/slamcore-1.2.0.tar.gz",
+              "packageSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "platform": "linux-arm64"
+            },
+            "hopContext": {
+              "hopIndex": 2,
+              "direction": "downstream",
+              "senderKind": "agent",
+              "senderId": "A2",
+              "receiverKind": "agent",
+              "receiverId": "A3",
+              "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+              "hopId": "a9bdd73b1c57434e55b4ea13f5222ed31b22dffc821e137dd8f2b4df9b8fcc51"
+            }
+          },
+          "requestFingerprint": "099a8fc8967b634615b4e212e2403212b6d3e0d1483d24fd8d4d978a182f196d",
+          "idempotencyKey": "command:U3",
+          "correlationId": "123E4567-e89B-42d3-A456-426614174000",
+          "recordedAtUtc": "2026-09-15T00:00:05Z"
+        },
+        {
+          "journalSequence": 2,
+          "kind": "rejection",
+          "attemptOrdinal": 1,
+          "authenticatedChildAgentId": "A3",
+          "response": {
+            "type": "urn:slamcore:error:stale-route",
+            "title": "Stale Route",
+            "status": 409,
+            "code": "STALE_ROUTE",
+            "detail": "The immutable route is no longer authorized for this first submission.",
+            "correlationId": "123E4567-e89B-42d3-A456-426614174000",
+            "retryable": false
+          },
+          "recordedAtUtc": "2026-09-15T00:00:06Z",
+          "httpStatus": 409
+        }
+      ]
+    },
+    "rejectionProofHash": "c4c29992a77e56de8fb134c652d9bc8e71020dea4b005273e804bec60e5c4431"
+  }
+}

@@ -734,35 +734,14 @@
           "minItems": 0
         },
         "failureEvidence": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "stage",
-            "agentId",
-            "obligationReceiptId",
-            "originReceipt",
-            "originReceiptHash"
-          ],
-          "properties": {
-            "stage": {
-              "const": "neverForwarded"
+          "oneOf": [
+            {
+              "$ref": "#/$defs/neverForwardedFailureEvidence"
             },
-            "agentId": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
-            },
-            "obligationReceiptId": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
-            },
-            "originReceipt": {
-              "$ref": "#/$defs/receipt"
-            },
-            "originReceiptHash": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
+            {
+              "$ref": "#/$defs/firstSubmissionRejectedFailureEvidence"
             }
-          }
+          ]
         }
       },
       "additionalProperties": false,
@@ -857,6 +836,34 @@
               "required": [
                 "failureEvidence"
               ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "failureEvidence"
+            ],
+            "properties": {
+              "failureEvidence": {
+                "properties": {
+                  "stage": {
+                    "const": "firstSubmissionRejected"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "errorCode": {
+                "enum": [
+                  "STALE_ROUTE",
+                  "ROUTE_MISMATCH",
+                  "INVALID_ADJACENCY",
+                  "CAPABILITY_MISMATCH"
+                ]
+              }
             }
           }
         }
@@ -1532,6 +1539,208 @@
         "registrationEventId": {
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      }
+    },
+    "neverForwardedFailureEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "agentId",
+        "obligationReceiptId",
+        "originReceipt",
+        "originReceiptHash"
+      ],
+      "properties": {
+        "stage": {
+          "const": "neverForwarded"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "obligationReceiptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "originReceipt": {
+          "$ref": "#/$defs/receipt"
+        },
+        "originReceiptHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "firstSubmissionRejectedFailureEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "agentId",
+        "obligationReceiptId",
+        "originReceipt",
+        "originReceiptHash",
+        "rejectionProof",
+        "rejectionProofHash"
+      ],
+      "properties": {
+        "stage": {
+          "const": "firstSubmissionRejected"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "obligationReceiptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "originReceipt": {
+          "$ref": "#/$defs/receipt"
+        },
+        "originReceiptHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rejectionProof": {
+          "$ref": "#/$defs/firstSubmissionRejectionProof"
+        },
+        "rejectionProofHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "firstSubmissionRejectionProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parentAgentId",
+        "childAgentId",
+        "obligationReceiptId",
+        "journalId",
+        "journalComplete",
+        "records"
+      ],
+      "properties": {
+        "parentAgentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "childAgentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "obligationReceiptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "journalId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "journalComplete": {
+          "const": true
+        },
+        "records": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "journalSequence",
+                "kind",
+                "attemptOrdinal",
+                "request",
+                "requestFingerprint",
+                "idempotencyKey",
+                "correlationId",
+                "recordedAtUtc"
+              ],
+              "properties": {
+                "journalSequence": {
+                  "const": 1
+                },
+                "kind": {
+                  "const": "submission"
+                },
+                "attemptOrdinal": {
+                  "const": 1
+                },
+                "request": {
+                  "$ref": "#/$defs/command"
+                },
+                "requestFingerprint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "idempotencyKey": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "correlationId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+                  "maxLength": 36
+                },
+                "recordedAtUtc": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "journalSequence",
+                "kind",
+                "attemptOrdinal",
+                "authenticatedChildAgentId",
+                "response",
+                "recordedAtUtc",
+                "httpStatus"
+              ],
+              "properties": {
+                "journalSequence": {
+                  "const": 2
+                },
+                "kind": {
+                  "const": "rejection"
+                },
+                "attemptOrdinal": {
+                  "const": 1
+                },
+                "authenticatedChildAgentId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                },
+                "response": {
+                  "$ref": "#/$defs/error"
+                },
+                "recordedAtUtc": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+                },
+                "httpStatus": {
+                  "enum": [
+                    409,
+                    422
+                  ]
+                }
+              }
+            }
+          ],
+          "items": false
         }
       }
     }

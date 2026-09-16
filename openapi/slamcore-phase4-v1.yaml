@@ -340,7 +340,8 @@ paths:
       responses:
         '202':
           description: Durably accepted before acknowledgment; pending downstream
-            obligation retained.
+            obligation retained. This original acceptance body is retained byte-for-byte
+            for POST replay; a later terminal proof snapshot does not overwrite it.
           content:
             application/json:
               schema:
@@ -399,7 +400,9 @@ paths:
         '409':
           description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
             INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
-            mutation of the rejected request.
+            mutation of the rejected request. A first matching STALE_ROUTE, ROUTE_MISMATCH or
+            INVALID_ADJACENCY rejection may be durably captured by the parent as
+            firstSubmissionRejected proof; no child command receipt is invented.
           content:
             application/json:
               schema:
@@ -409,7 +412,8 @@ paths:
                   externalValue: ../examples/phase4/error-409.json
         '422':
           description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
-            downgrade.
+            downgrade. A first matching CAPABILITY_MISMATCH rejection may be
+            captured in parent firstSubmissionRejected proof. See normative section 7.1.
           content:
             application/json:
               schema:
@@ -440,7 +444,10 @@ paths:
       operationId: AgentQueryCommandReceipt
       summary: query command receipt
       description: Authorized immediate upstream peer queries durable original acceptance
-        plus current obligationState. Stored command is immutable; GET 404 does not
+        plus current obligationState. receiptId identifies the obligation; this read
+        snapshot may advance state without overwriting the original POST acceptance.
+        A firstSubmissionRejected event freezes its own terminal receipt snapshot.
+        Stored command is immutable; GET 404 does not
         prove absence of downstream acceptance. Query then exact replay on uncertain
         outcome.
       x-owner: Agent
@@ -642,6 +649,8 @@ paths:
             examples:
               canonical:
                 externalValue: ../examples/phase4/routed-status-event.json
+              firstSubmissionRejected:
+                externalValue: ../examples/phase4/first-submission-rejected-event.json
     get:
       operationId: AgentQueryDurableStatusEvents
       summary: query durable status events
@@ -866,6 +875,8 @@ paths:
             examples:
               canonical:
                 externalValue: ../examples/phase4/root-status.json
+              firstSubmissionRejected:
+                externalValue: ../examples/phase4/first-submission-rejected-root-status.json
   /devices/{targetDeviceId}/history:
     get:
       operationId: ServerReadRoutedHistory
@@ -917,6 +928,8 @@ paths:
               examples:
                 canonical:
                   externalValue: ../examples/phase4/history-page.json
+                firstSubmissionRejected:
+                  externalValue: ../examples/phase4/first-submission-rejected-history.json
         '400':
           description: 'Malformed request or missing required header: VALIDATION_FAILED.'
           content:

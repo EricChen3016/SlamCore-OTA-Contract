@@ -40,6 +40,15 @@ owner. The dedicated new history page fixes the R/U and unavailable-evidence
 representation gap without extending the legacy `UpdateStatus[]` response.
 The additive runtime-2.0 precedent is repository 2.1.0.
 
+
+This Draft's firstSubmissionRejected correction adds an accepted status/proof branch
+only to the unpublished Phase 4 endpoints. Under AGENTS.md, an accepted-value addition
+is additive/minor, not a patch-only semantic rewrite. It is included in the existing
+unreleased 2.2.0 minor delivery relative to released 2.1.1; it does not remove or narrow
+any previously valid legacy DTO or change runtime 2.0. Intermediate Draft commit pins
+are not automatically compatible: consumers must coordinate the reviewed SHA and
+Server-before-Agent rollout in the compatibility matrix before emitting this branch.
+
 ## 2. Observation versus accepted topology
 
 `agent-observation.schema.json` is Agent-scoped registration/heartbeat evidence:
@@ -206,7 +215,11 @@ command/event hop envelope is independently validated and fixed for that boundar
 excluding it does not permit route mutation. Root-status fingerprints include its
 fixed root hop. Fingerprints use canonical JSON from section 3; for a status event,
 replace message with the lowercase hex encoding of its original UTF-8 bytes before
-canonicalization so arbitrary human text is preserved exactly. No text trimming.
+canonicalization so arbitrary human text is preserved exactly. For the new
+firstSubmissionRejected variant, also replace the embedded rejection response
+type/title/detail strings with their original UTF-8 lowercase hex before hashing
+the event or root-status. The proof hash uses the same text encoding (section 7.1).
+No text trimming or wire-payload rewriting.
 
 Same key + fingerprint returns the durable original acceptance/receipt. Same job
 with different target/route/payload/correlation/expiry is `409 IDEMPOTENCY_CONFLICT`
@@ -223,14 +236,14 @@ sequence or physical ordinal is allocated for retry.
 | Submission may already have occurred, expiry/late status | continue same query/replay; retain all receipts/evidence and accepted route |
 | Server outage | downstream work/recovery continues; Root durable outbox retains terminal events and exact sequence/key |
 | Root/Relay/Leaf restart | restore identities, receipts, source dedupe, sequence allocations and downstream obligations before new dispatch |
-| Definitive permanent mutation rejection | owner records terminal failure and propagates stable event, preserving original obligation/evidence |
+| Verified terminal outcome | owner persists a schema-supported terminal event and proof; HTTP request rejection alone does not establish logical terminal eligibility |
 | Stale route, changed adjacency, route mismatch, incapable neighbor | fail closed, no substitute path or silent downgrade; report deterministic rejection |
 
 A new dispatch checks current authenticated capabilities and local adjacency as
 well as the retained snapshot. Unrelated topology revision changes never mutate an
 accepted route. If a retained route is no longer authorized, do not send a new
 mutation. A never-submitted operation can fail terminally with STALE_ROUTE,
-INVALID_ADJACENCY or CAPABILITY_MISMATCH. An operation with uncertain downstream
+ROUTE_MISMATCH, INVALID_ADJACENCY or CAPABILITY_MISMATCH. An operation with uncertain downstream
 acceptance keeps its recovery/evidence obligation; a rejected retry is **not** proof
 that the earlier operation never ran. It must reconcile through the original
 permitted boundary or await explicit remediation. Expiry never deletes evidence.
@@ -246,6 +259,26 @@ insufficient while the earlier send is unknown. A first, known-unaccepted mutati
 can be rejected deterministically only when its original request/attempt is matched
 and no earlier uncertain/accepted submission exists. Their receipt/outcome meaning
 must not be inferred solely from retryable=false; pre-existing obligations remain.
+
+For a submitted U without observed Updater versions, only the four authenticated
+pre-acceptance route/capability errors in §7.1 establish this first-rejection terminal
+path. ROUTE_MISMATCH can occur when the immutable request snapshot disagrees with the
+child's currently authorized binding. All four require the child to have **no existing
+obligation for this U**: a child with an existing matching obligation returns its
+retained acceptance/outcome; a conflicting identity or payload returns the appropriate
+conflict. It MUST NOT describe such existing work as a first pre-acceptance rejection,
+even if its current route/capability checks would now fail. A rejection of this request
+does not prove that this U has never executed.
+
+Other nonretryable responses do not authorize `notObserved` projection: 409
+IDEMPOTENCY_CONFLICT/UPDATE_ALREADY_RUNNING/INVALID_TOPOLOGY may describe existing work, conflicting or invalid context;
+400 VALIDATION_FAILED, 401/403 UNAUTHORIZED_PEER, 404, and 422 INCOMPATIBLE_RELEASE do
+not supply the §7.1 route/capability attestation. Preserve the obligation in a blocked,
+unresolved state for verified reconciliation or explicit remediation; do not create
+a failure event or invent versions merely to terminate it. Any earlier unknown or
+accepted attempt likewise requires its actual outcome, regardless of the latest error
+code. This does not retry a nonretryable malformed/unauthorized request blindly.
+503 and transport failures retain uncertainty under the existing recovery rules.
 
 ## 7. Status, root sequence and dedicated history
 
@@ -285,7 +318,7 @@ targetVersion. Available uses two SemVer strings. Unavailable requires paired
 nulls, **rollback + failed + non-null errorCode**. It is illegal for update U or
 rollback success/active states. Do not fabricate versions from inventory, old U
 rows, package names or the command. Missing evidence leaves device version and
-original U unchanged. For a routed update U rejected before the rejecting Agent has ever forwarded
+original U unchanged. For the neverForwarded variant, a routed update U rejected before the rejecting Agent has ever forwarded
 its obligation, the new DTO additionally permits availability `notObserved` with
 paired null versions, failed state and a specific pre-forward rejection code.
 Required failureEvidence names `stage=neverForwarded`, the rejecting snapshot
@@ -312,7 +345,7 @@ proof using its retained obligation. This is explicit transitive trust through t
 configured Agents, not a claim that an unsigned hash independently authenticates a
 remote source or withstands a compromised trusted relay. No direct source bypass,
 body-claimed identity alone, new PKI mechanism or out-of-band receipt is permitted.
-See `leaf-before-forward-failure.json`, `never-forwarded-transcript.json`, and
+For neverForwarded, see `leaf-before-forward-failure.json`, `never-forwarded-transcript.json`, and
 `never-forwarded-history.json` for A3→A2→A1→Server proof transport. It cannot be
 used after submission might have occurred, for a physical operation, or for R.
 This separately named variant is exclusive to new routed interfaces; it neither
@@ -322,6 +355,94 @@ version and original records remain unchanged. See
 
 The new history endpoint returns these full root envelopes;
 the old history endpoint remains the old schema and meaning.
+
+### 7.1 First submission rejected by the immediate child
+
+`failureEvidence.stage=firstSubmissionRejected` is a distinct U-only variant for a
+parent Agent's **first** routed mutation to its immediate child Agent, rejected
+before child durable acceptance. It is not neverForwarded: the parent retains
+`downstreamEverSubmitted=true`. Only these response pairs are valid:
+
+| HTTP status | ErrorResponse.code = event.errorCode |
+| --- | --- |
+| 409 | STALE_ROUTE, ROUTE_MISMATCH or INVALID_ADJACENCY |
+| 422 | CAPABILITY_MISMATCH |
+
+The event is `update + failed`, availability `notObserved`, paired null versions,
+and an empty physicalEvidence array. No inventory, command or previous-job version
+may be substituted. Server terminalizes U and retains the full proof in its dedicated
+history; it does not change device version or claim physical execution from this
+failure. This case requires a child Agent on the original immutable route; it does
+not apply to Leaf→Updater, R, a later attempt, an ambiguous response, or a retry
+rejection after earlier unknown/accepted submission. Other error codes do not become
+valid merely because retryable=false. Existing unavailable R and neverForwarded U
+rules remain unchanged.
+
+The origin is the submitting **parent**, identified by failureEvidence.agentId.
+Its originReceipt is an immutable **terminal proof snapshot**, created and persisted
+after the verified rejection with obligationState=terminal and everSubmitted=true.
+It keeps the original command, acceptedAtUtc, receiptId and semantic fingerprint.
+receiptId identifies the durable obligation, not a unique serialization of every
+read snapshot. The original POST acceptance body is separately retained byte-for-byte
+and exact POST replay still returns it; it is never rewritten into the terminal
+proof. GET receipt may report the current obligation snapshot under the same ID.
+The event freezes its terminal originReceipt bytes and originReceiptHash forever.
+State advancement and everSubmitted becoming true create new snapshots, never change
+an already emitted acceptance/proof, and never reset everSubmitted to false. Replaying
+a historical acceptance with false must not overwrite current true submission state.
+`first-submission-original-acceptance.json` and `first-submission-rejected-event.json`
+demonstrate both immutable bodies for the same parent obligation. No child receipt
+is fabricated or required.
+
+`rejectionProof` binds parentAgentId, childAgentId, obligationReceiptId and journalId
+to a complete, append-only parent-local journal for this one obligation's downstream
+attempts, starting at sequence 1. `journalComplete=true` attests retained coverage
+from its creation through the matching response. This variant has **exactly two**
+records, in order, both attemptOrdinal=1:
+
+1. `submission`, journalSequence=1: full immutable routed request with the actual
+   child-directed hop, semantic requestFingerprint, `command:U` Idempotency-Key,
+   exact request correlationId and recordedAtUtc. Commit this write-ahead record
+   and everSubmitted=true before issuing the HTTP request. It must match the real
+   forwarded request, not be constructed later from an error message.
+2. `rejection`, journalSequence=2: independently authenticatedChildAgentId, actual transport
+   httpStatus, complete original ErrorResponse and recordedAtUtc. Persist only after receiving and matching
+   the authenticated response to that first request. Response correlationId must
+   equal the request's exact spelling; actual HTTP status must equal ErrorResponse.status; status/code must match the table and
+   retryable=false. The incoming acceptance precedes submission; first submission
+   is before expiry; rejection is not before submission or after event observation.
+
+Any earlier/later attempt, lost response, uncertainty, acceptance or query is a
+journal fact that MUST be retained, never erased to manufacture this two-record
+proof. Restart after an unresolved send retains uncertainty; a subsequent 4xx cannot
+certify first-known rejection. Lost/uncertain work continues the existing query/exact
+replay process. After persisting the matched response record, the parent atomically freezes its
+terminal proof snapshot, stable failure event/outbox and terminal obligation before
+upstream delivery or local terminal completion. A crash after the response record
+but before this final transaction resumes proof/event creation from those retained
+facts. After a verified response was durably retained, restart never dispatches a
+second mutation; it completes or reuses the same terminal proof and stable event. Original
+acceptance replay remains available throughout.
+
+`rejectionProofHash` is SHA-256 of section 3 canonical JSON of the complete proof,
+after encoding only records[1].response.type/title/detail as lowercase hex of their
+exact UTF-8 bytes. This makes arbitrary response text verifiable without normalization.
+The wire proof remains unchanged. originReceiptHash keeps its existing algorithm.
+All route/U/operation correlation fields, hop, fingerprint, parent/child identities,
+receipt binding, response echo, timestamps and hashes are checked on every projection.
+Same event ID plus altered proof is a conflict. Relays preserve the full proof;
+Root alone allocates sequence; Server atomically validates then stores full status
+and history, retaining exact replay and rejecting conflicting sequence/event bodies.
+
+A wire claim of journalComplete is **not** proof of local storage truth. The origin
+must validate its actual write-ahead journal, transport-authenticated response and
+unchanged original acceptance. The trace validator independently compares those
+source actions and restart state against the projected proof; it rejects an invented
+proof even when that proof alone is schema-valid. Upstream relays and Server validate
+all visible bindings and retain the evidence under the established adjacent-peer
+trust boundary. Server cannot independently read the parent's DB or authenticate
+this history solely from its unsigned hash. A compromised trusted parent remains
+outside that proof guarantee; no new PKI or direct Server→child side channel is added.
 
 ## 8. Durable physical-operation evidence
 

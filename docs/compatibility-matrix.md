@@ -56,3 +56,21 @@ negative fixtures and reproduce the three route hash vectors in its native
 language. New-contract tests alone do not prove consumer persistence or HIL.
 Historical TBD rows above document old release status only and are not unfinished
 Phase 4 requirements.
+
+
+### First known child rejection correction
+
+Unpublished 2.2.0 includes the distinct firstSubmissionRejected U proof. An earlier
+Draft SHA (including a978d82) lacks that union and rejects its status; identical
+runtime 2.0/hierarchy capability does not imply support for every intermediate Draft
+revision. Pin the reviewed corrected Contract SHA in Server #8 and every route Agent
+#9; deploy/verify Server validation/history support before any Agent emits the branch.
+Until that coordinated conformance is complete, disable new routed dispatch requiring
+this path and retain existing obligations for reconciliation/remediation. Do not
+silently downgrade the proof or convert an actual submission into neverForwarded.
+Existing Contract 2.0 single-hop endpoints, R unavailable and neverForwarded U remain
+unchanged; Updater payloads and legacy migration need no new field. Accepted parent
+obligations migrate by retaining original acceptance bytes, monotonic submission facts
+and the complete attempt journal. Missing historical attempt coverage cannot be
+backfilled from a 4xx or inventory; it remains unproven. Parent terminal proof snapshots
+are additional immutable evidence, never replacements for initial acceptance bodies.

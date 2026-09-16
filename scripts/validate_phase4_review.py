@@ -97,7 +97,11 @@ def uncertain_rejection():
     known = [steps[0], dict(action='terminalize', actor='A1', job='U3')]
     assert p.transcript({'steps': known}, commands)['deliveryAttempts'] == 0
     first_rejection = [steps[0], steps[1], steps[2], dict(action='mutationRejected',actor='A1',job='U3',attemptOrdinal=1,requestFingerprint=p.command_fingerprint(commands['U3']),response=load('error-400.json')), dict(action='terminalize',actor='A1',job='U3')]
-    assert p.transcript({'steps':first_rejection},commands)['deliveryAttempts']==1
+    rejected('REJECTION_JOURNAL', lambda:p.transcript({'steps':first_rejection},commands))
+    # A local terminalize is insufficient: validate the actual U status wire,
+    # durable adjacent relay, Root receipt and Server history for the first rejection.
+    from validate_phase4_first_rejection import durable_propagation
+    durable_propagation()
     retry_rejection = steps[:-1] + [first_rejection[-2],first_rejection[-1]]
     rejected('UNKNOWN_TERMINAL',lambda:p.transcript({'steps':retry_rejection},commands))
     recovered = steps[:-1] + [dict(action='query',actor='A1',job='U3',result='accepted',receiptFingerprint=p.command_fingerprint(commands['U3']))]

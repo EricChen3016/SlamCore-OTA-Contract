@@ -58,7 +58,7 @@ All references below are within this repository. `phase4-viaagent` means the nor
 
 ## Validation evidence and limits
 
-Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **28 positive schema mappings, 33 semantic checks, 96 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations, and 17 independent-review regression groups**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
+Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **32 positive schema mappings, 33 semantic checks, 130 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations, 17 independent-review regression groups and 4 first-rejection regression groups**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
 
 The positive N-hop transcript contains **2 logical commands (U3/R3), 6 Agent durable obligations, 12 downstream command delivery attempts, and 8 upstream status relay attempts**. For activation and explicitRollback separately: invoked=1, activationStarted intent=1, completed=1, confirmedPhysicalStarts=1, unresolvedPhysicalStarts=0. Automatic recovery is a separate raw fixture for failed U-recovery. An intent-only crash has confirmedPhysicalStarts=0, unresolvedPhysicalStarts=1 and snapshotProven=false / operationLifetimeProven=false even when its journal page is complete. These numbers describe the fixtures, not a device.
 
@@ -247,3 +247,64 @@ assertion. The interim 038a302 format-only correction failed independent review
 because annotation-only validators accepted arbitrary strings. The structural
 regression prevents that gap while leaving legacy 2.0 schemas, operation identity,
 hash vectors and idempotency rules unchanged.
+
+
+## First known-unaccepted child rejection (F4 completion)
+
+The original F4 trace could locally terminalize without a valid U event. The new
+firstSubmissionRejected proof completes AC-13/14/15/16, AC-29/30/31/32 and AC-38/42/44:
+parent A2 has an immutable original acceptance plus a true-submitted terminal snapshot,
+first write-ahead request and independently authenticated A3 409/422 response; the
+same failure event/proof passes A2→A1, Root sequence0, exact status replay and Server
+history. The valid scenario has 1 logical U, 2 durable Agent obligations, 2 command
+deliveries, 2 status relay attempts, no pending status after ACK, and no observed
+physical phases. These are synthetic facts, not HIL/production evidence.
+
+Four first-rejection groups cover wire/history and preserved acceptance snapshots;
+all four allowed 409/422 responses through actual journal/relay/restart/outage traces;
+source-trace rejection cases plus legal uncertain query/replay; and conflicting
+proof/atomic Server rejection/Unicode evidence preservation. A source cannot certify
+an unknown/retried/accepted send by merely supplying a complete=true proof. Server
+validates projected bindings through trusted relays; it cannot read a remote journal.
+The old neverForwarded and R-only unavailable tests remain. The F4 review regression
+now calls full propagation, replacing its earlier delivery-count-only positive check.
+
+Additional exact-reason wire negatives (rehashRejection recomputes both supplied
+hashes for semantic cases; altered-proof-hash intentionally retains a wrong hash):
+
+| Fixture | Check | Positive base | Required rejection |
+| --- | --- | --- | --- |
+| first-rejection-wrong-child | firstRejection | first-submission-rejected-event.json | REJECTION_CHILD |
+| first-rejection-wrong-auth-child | firstRejection | first-submission-rejected-event.json | REJECTION_CHILD |
+| first-rejection-wrong-parent | firstRejection | first-submission-rejected-event.json | REJECTION_CHILD |
+| first-rejection-foreign-receipt | firstRejection | first-submission-rejected-event.json | REJECTION_OBLIGATION |
+| first-rejection-foreign-job | firstRejection | first-submission-rejected-event.json | REJECTION_REQUEST |
+| first-rejection-foreign-operation-correlation | firstRejection | first-submission-rejected-event.json | REJECTION_REQUEST |
+| first-rejection-wrong-route | firstRejection | first-submission-rejected-event.json | REJECTION_REQUEST |
+| first-rejection-altered-payload | firstRejection | first-submission-rejected-event.json | REJECTION_REQUEST |
+| first-rejection-wrong-fingerprint | firstRejection | first-submission-rejected-event.json | REJECTION_REQUEST |
+| first-rejection-wrong-hop | firstRejection | first-submission-rejected-event.json | REJECTION_HOP |
+| first-rejection-wrong-key | firstRejection | first-submission-rejected-event.json | REJECTION_KEY |
+| first-rejection-response-echo | firstRejection | first-submission-rejected-event.json | ERROR_CORRELATION_ECHO |
+| first-rejection-non-409-422 | firstRejection | first-submission-rejected-event.json | REJECTION_RESPONSE |
+| first-rejection-wrong-response-code | firstRejection | first-submission-rejected-event.json | REJECTION_RESPONSE |
+| first-rejection-retryable-response | firstRejection | first-submission-rejected-event.json | REJECTION_RESPONSE |
+| first-rejection-mismatched-status-code | firstRejection | first-submission-rejected-event.json | REJECTION_RESPONSE |
+| first-rejection-mismatched-event-code | firstRejection | first-submission-rejected-event.json | REJECTION_RESPONSE |
+| first-rejection-late-first-send | firstRejection | first-submission-rejected-event.json | REJECTION_TIME |
+| first-rejection-response-before-submission | firstRejection | first-submission-rejected-event.json | REJECTION_TIME |
+| first-rejection-observation-before-response | firstRejection | first-submission-rejected-event.json | REJECTION_TIME |
+| first-rejection-false-submission | firstRejection | first-submission-rejected-event.json | REJECTION_SUBMISSION |
+| first-rejection-nonterminal-receipt | firstRejection | first-submission-rejected-event.json | FAILURE_AFTER_SUBMISSION |
+| first-rejection-partial-journal | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-later-attempt | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-noninitial-journal | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-earlier-unknown | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-unavailable-U | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-available-with-proof | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-rollback-with-proof | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-claimed-child-receipt | firstRejection | first-submission-rejected-event.json | FAILURE_EVIDENCE_AUTHORITY |
+| first-rejection-altered-proof-hash | firstRejection | first-submission-rejected-event.json | REJECTION_PROOF_HASH |
+| first-rejection-physical-claim | firstRejection | first-submission-rejected-event.json | SCHEMA |
+| first-rejection-transport-status-mismatch | firstRejection | first-submission-rejected-event.json | REJECTION_RESPONSE |
+| first-rejection-transport-not-409-422 | firstRejection | first-submission-rejected-event.json | SCHEMA |
