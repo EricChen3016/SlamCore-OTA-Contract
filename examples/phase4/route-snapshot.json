@@ -1,0 +1,61 @@
+{
+  "routeId": "route-D3",
+  "routeVersion": 1,
+  "topologyVersion": 1,
+  "serverId": "server-1",
+  "targetDeviceId": "D3",
+  "targetUpdaterId": "P3",
+  "orderedAgentIds": [
+    "A1",
+    "A2",
+    "A3"
+  ],
+  "capabilitySnapshot": {
+    "agents": [
+      {
+        "agentId": "A1",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "explicit-rollback-v1",
+          "hierarchical-relay-v1"
+        ],
+        "registrationEventId": "registration-A1"
+      },
+      {
+        "agentId": "A2",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "explicit-rollback-v1",
+          "hierarchical-relay-v1"
+        ],
+        "registrationEventId": "registration-A2"
+      },
+      {
+        "agentId": "A3",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "explicit-rollback-v1",
+          "hierarchical-relay-v1"
+        ],
+        "registrationEventId": "registration-A3"
+      }
+    ],
+    "updater": {
+      "updaterId": "P3",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "physical-operation-evidence-v1"
+      ],
+      "evidenceId": "capability-P3"
+    },
+    "device": {
+      "deviceId": "D3",
+      "capabilities": [
+        "explicit-rollback-v1"
+      ],
+      "registrationEventId": "device-registration-D3"
+    }
+  },
+  "createdAtUtc": "2026-09-15T00:00:00Z",
+  "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+}

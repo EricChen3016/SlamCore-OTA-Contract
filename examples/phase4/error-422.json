@@ -1,0 +1,9 @@
+{
+  "type": "urn:slamcore:error:capability-mismatch",
+  "title": "Capability Mismatch",
+  "status": 422,
+  "code": "CAPABILITY_MISMATCH",
+  "detail": "Request rejected; see normative error semantics.",
+  "correlationId": "30000000-0000-4000-8000-000000000003",
+  "retryable": false
+}

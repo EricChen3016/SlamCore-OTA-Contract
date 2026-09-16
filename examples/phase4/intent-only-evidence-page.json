@@ -1,0 +1,73 @@
+{
+  "records": [
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "invoked",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+      },
+      "journalSequence": 1,
+      "links": {
+        "journalRecordId": "journal-record-1",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "notStarted",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "activationStarted",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "52a102d067799e32c45ca92e146e23186d59ad71f0573a729c8f680bb00a9ffc"
+      },
+      "journalSequence": 2,
+      "links": {
+        "journalRecordId": "journal-record-2",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "unknown",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    }
+  ],
+  "nextAfterJournalSequence": null,
+  "complete": true,
+  "journalHighWatermark": 2,
+  "updaterJobId": "U3",
+  "journalId": "journal-P3-1",
+  "afterJournalSequence": 0,
+  "retentionComplete": true,
+  "proofScope": "journalSnapshot",
+  "operationLifetimeProven": false
+}

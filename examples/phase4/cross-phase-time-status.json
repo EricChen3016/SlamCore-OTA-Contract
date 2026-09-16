@@ -1,0 +1,211 @@
+{
+  "event": {
+    "contractVersion": "2.0",
+    "commandType": "update",
+    "serverCommandJobId": "U3",
+    "originalUpdateJobId": null,
+    "updaterJobId": "U3",
+    "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+    "targetDeviceId": "D3",
+    "routeSnapshot": {
+      "routeId": "route-D3",
+      "routeVersion": 1,
+      "topologyVersion": 1,
+      "serverId": "server-1",
+      "targetDeviceId": "D3",
+      "targetUpdaterId": "P3",
+      "orderedAgentIds": [
+        "A1",
+        "A2",
+        "A3"
+      ],
+      "capabilitySnapshot": {
+        "agents": [
+          {
+            "agentId": "A1",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A1"
+          },
+          {
+            "agentId": "A2",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A2"
+          },
+          {
+            "agentId": "A3",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A3"
+          }
+        ],
+        "updater": {
+          "updaterId": "P3",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "physical-operation-evidence-v1"
+          ],
+          "evidenceId": "capability-P3"
+        },
+        "device": {
+          "deviceId": "D3",
+          "capabilities": [
+            "explicit-rollback-v1"
+          ],
+          "registrationEventId": "device-registration-D3"
+        }
+      },
+      "createdAtUtc": "2026-09-15T00:00:00Z",
+      "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+    },
+    "statusEventId": "cross-phase-time-batch",
+    "hopContext": {
+      "hopIndex": 0,
+      "direction": "upstream",
+      "senderKind": "agent",
+      "senderId": "A1",
+      "receiverKind": "server",
+      "receiverId": "server-1",
+      "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+      "hopId": "8df48717f980b82454f3af71e7f830b3dfe171e35c5285d15eb0c8f89761e7c0"
+    },
+    "state": "failed",
+    "progressPercent": 100,
+    "message": "frozen-reference evidence oracle shared-source",
+    "errorCode": "OPERATION_TIMEOUT",
+    "versionEvidence": {
+      "availability": "available",
+      "fromVersion": "1.0.0",
+      "targetVersion": "1.2.0"
+    },
+    "observedAtUtc": "2026-09-15T00:20:00Z",
+    "physicalEvidence": [
+      {
+        "serverCommandJobId": "U3",
+        "originalUpdateJobId": null,
+        "updaterJobId": "U3",
+        "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+        "authorizedLeafAgentId": "A3",
+        "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+        "source": {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "invoked",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+          },
+          "journalSequence": 1,
+          "links": {
+            "journalRecordId": "journal-record-1",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "notStarted",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        }
+      },
+      {
+        "serverCommandJobId": "U3",
+        "originalUpdateJobId": null,
+        "updaterJobId": "U3",
+        "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+        "authorizedLeafAgentId": "A3",
+        "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+        "source": {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "activationStarted",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "8c9786b39e08c26fec02ff8760c2a56a4a5216181576b02faaa59241d6a123bf"
+          },
+          "journalSequence": 2,
+          "links": {
+            "journalRecordId": "journal-record-2",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "confirmed",
+            "sourceRecordId": "physical-observation-3",
+            "observedAtUtc": "2026-09-15T00:01:10Z"
+          }
+        }
+      },
+      {
+        "serverCommandJobId": "U3",
+        "originalUpdateJobId": null,
+        "updaterJobId": "U3",
+        "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+        "authorizedLeafAgentId": "A3",
+        "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+        "source": {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "completed",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": "2026-09-15T00:01:05Z",
+          "result": "failed",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "b12c4a228c1743166a5be9f452553d59ffed12fec04e30007ef7b4e1f068d632"
+          },
+          "journalSequence": 3,
+          "links": {
+            "journalRecordId": "journal-record-3",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "unknown",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        }
+      }
+    ]
+  },
+  "sequence": 0,
+  "rootAgentId": "A1"
+}

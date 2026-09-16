@@ -1,0 +1,18 @@
+[
+  {
+    "status": 409,
+    "code": "STALE_ROUTE"
+  },
+  {
+    "status": 409,
+    "code": "ROUTE_MISMATCH"
+  },
+  {
+    "status": 409,
+    "code": "INVALID_ADJACENCY"
+  },
+  {
+    "status": 422,
+    "code": "CAPABILITY_MISMATCH"
+  }
+]

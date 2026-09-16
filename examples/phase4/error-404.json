@@ -1,0 +1,9 @@
+{
+  "type": "urn:slamcore:error:resource-not-found",
+  "title": "Resource Not Found",
+  "status": 404,
+  "code": "RESOURCE_NOT_FOUND",
+  "detail": "Request rejected; see normative error semantics.",
+  "correlationId": "30000000-0000-4000-8000-000000000003",
+  "retryable": false
+}

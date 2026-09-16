@@ -18,3 +18,59 @@
 - Server and Agent must pin and implement `2.1.0` before rollback command creation is enabled. An upgraded Agent rejects missing or unknown `commandType` values on `/command` and advertises `explicit-rollback-v1` only when its durable rollback path is ready. Server requires that exact token in the device's latest successful registration for both creation and delivery; absent, empty, removed, or unknown capabilities fail closed.
 - Repository `2.1.1` keeps normal status payloads and runtime `2.0` unchanged. `versionEvidence=unavailable` requires `failed`, non-null `errorCode`, and both versions null; Server additionally accepts it only for rollback `R`, terminalizes only `R`, and does not change the device version or original `U`.
 - The `2.1.1` accepted-payload extension requires Contract → Server → Agent rollout. An Agent must not emit the unavailable-evidence variant to a `2.1.0` Server. Old Agents remain compatible, and Updater plus SlamCoreWeb require no changes.
+
+## Phase 4 supported and fail-closed combinations
+
+“Supported” below is a Contract conformance combination, not a claim that the
+consumer implementation or production qualification has passed. Consumers must
+pin repository **2.2.0's reviewed commit**; all wire DTOs remain **2.0**.
+
+| Server | Every route Agent | Updater | Outcome |
+| --- | --- | --- | --- |
+| Legacy Contract 2.0/2.1.x | legacy single Agent | compatible 2.0 | Existing single-hop registration, update, lifecycle/status/history remain supported. Explicit rollback retains its device capability/2.1.1 emission gate. |
+| New Server, routed dispatch disabled | legacy Agent | compatible 2.0 | Legacy endpoints remain supported; no routed envelope delivered. |
+| New routed Server | all advertise exact Agent-scoped `hierarchical-relay-v1` | exact `physical-operation-evidence-v1`, runtime 2.0 | New routed single-hop, branching and N-hop update supported after complete migration/conformance. |
+| New routed Server | same as above, device has latest `explicit-rollback-v1` | same as above | R→U supported; original successful U route retained, one R per U. |
+| New routed Server | only `explicit-rollback-v1`, missing/removed/unknown hierarchy token | any | Fail closed for routed creation/delivery; no hierarchy inference or fallback. |
+| New routed Server | fully capable hierarchy | missing evidence capability / unknown Updater wire version | Fail closed for new Phase 4 dispatch. Existing accepted 2.0 work keeps its recovery obligations. |
+| Old Server | new Agents | any | Use legacy interface only where explicitly configured for existing single-hop deployment; do not send new DTOs to old Server or silently downgrade a multi-hop command. |
+| Any | any Agent missing durable migration/authorization, ambiguous legacy attachment or unknown runtime version | any | Fail closed before new acceptance/forwarding. |
+| New routed Server | current capability removal or route no longer authorized after acceptance | any | No reroute. Preserve original obligations/evidence; uncertainty must reconcile, not falsely terminalize. |
+
+Upgrade order and explicit migration evidence are normative in
+[Phase 4 sections 3, 6 and 9](phase4-viaagent.md). Pure relay Agents with no devices
+register the same Agent-scoped capability; device registration never substitutes
+for an Agent node. No DirectUpdater compatibility is supported.
+
+### Consumer conformance handoff
+
+| Owner | Required implementation evidence |
+| --- | --- |
+| [Server #8](https://github.com/EricChen3016/SlamCore-Server/issues/8) | Retained topology/route revisions and migration; exact-capability feed gating; U/R and per-device isolation; immutable receipts; stale/gap/late status; dedicated history and complete projected evidence reads. |
+| [Agent #9](https://github.com/EricChen3016/SlamCore-Agent/issues/9) | Authenticated immediate-neighbor checks; write-before-ack/forward; exact U/R and fingerprint; root/relay/leaf restart; query-before-replay including 404; root-only sequence; original source evidence retention and projection. |
+| [Updater #55](https://github.com/EricChen3016/SlamCore-Updater/issues/55) | Authorized Leaf only; unchanged U-only mutation engine; durable ordinal/phase and execution uncertainty; structured raw reads; source journal/marker/symlink/runtime linkage; no retries fabricating physical counts. |
+| [Server #18](https://github.com/EricChen3016/SlamCore-Server/issues/18) | Fixed consumer/Contract/package SHAs/digests; real Windows/Jetson single-hop/branching/N-hop U/R, restart/outage/response loss; capture completeness and independently verified physical counts; security/runbook/go-no-go. |
+
+Every consumer must run legacy 2.0 regressions plus the positive and exact-reason
+negative fixtures and reproduce the three route hash vectors in its native
+language. New-contract tests alone do not prove consumer persistence or HIL.
+Historical TBD rows above document old release status only and are not unfinished
+Phase 4 requirements.
+
+
+### First known child rejection correction
+
+Unpublished 2.2.0 includes the distinct firstSubmissionRejected U proof. An earlier
+Draft SHA (including a978d82) lacks that union and rejects its status; identical
+runtime 2.0/hierarchy capability does not imply support for every intermediate Draft
+revision. Pin the reviewed corrected Contract SHA in Server #8 and every route Agent
+#9; deploy/verify Server validation/history support before any Agent emits the branch.
+Until that coordinated conformance is complete, disable new routed dispatch requiring
+this path and retain existing obligations for reconciliation/remediation. Do not
+silently downgrade the proof or convert an actual submission into neverForwarded.
+Existing Contract 2.0 single-hop endpoints, R unavailable and neverForwarded U remain
+unchanged; Updater payloads and legacy migration need no new field. Accepted parent
+obligations migrate by retaining original acceptance bytes, monotonic submission facts
+and the complete attempt journal. Missing historical attempt coverage cannot be
+backfilled from a 4xx or inventory; it remains unproven. Parent terminal proof snapshots
+are additional immutable evidence, never replacements for initial acceptance bodies.

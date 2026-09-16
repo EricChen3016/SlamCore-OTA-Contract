@@ -1,0 +1,118 @@
+{
+  "contractVersion": "2.0",
+  "serverId": "server-1",
+  "topologyVersion": 1,
+  "createdAtUtc": "2026-09-15T00:00:00Z",
+  "agents": [
+    {
+      "agentId": "A1",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "explicit-rollback-v1",
+        "hierarchical-relay-v1"
+      ],
+      "registrationEventId": "registration-A1"
+    },
+    {
+      "agentId": "A2",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "explicit-rollback-v1",
+        "hierarchical-relay-v1"
+      ],
+      "registrationEventId": "registration-A2"
+    },
+    {
+      "agentId": "A3",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "explicit-rollback-v1",
+        "hierarchical-relay-v1"
+      ],
+      "registrationEventId": "registration-A3"
+    },
+    {
+      "agentId": "A4",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "explicit-rollback-v1",
+        "hierarchical-relay-v1"
+      ],
+      "registrationEventId": "registration-A4"
+    }
+  ],
+  "parentLinks": [
+    {
+      "parentAgentId": "A1",
+      "childAgentId": "A2"
+    },
+    {
+      "parentAgentId": "A2",
+      "childAgentId": "A3"
+    }
+  ],
+  "attachments": [
+    {
+      "deviceId": "D1",
+      "updaterId": "P1",
+      "agentId": "A1",
+      "capability": {
+        "deviceId": "D1",
+        "capabilities": [
+          "explicit-rollback-v1"
+        ],
+        "registrationEventId": "device-registration-D1"
+      }
+    },
+    {
+      "deviceId": "D2",
+      "updaterId": "P2",
+      "agentId": "A2",
+      "capability": {
+        "deviceId": "D2",
+        "capabilities": [
+          "explicit-rollback-v1"
+        ],
+        "registrationEventId": "device-registration-D2"
+      }
+    },
+    {
+      "deviceId": "D3",
+      "updaterId": "P3",
+      "agentId": "A3",
+      "capability": {
+        "deviceId": "D3",
+        "capabilities": [
+          "explicit-rollback-v1"
+        ],
+        "registrationEventId": "device-registration-D3"
+      }
+    }
+  ],
+  "updaters": [
+    {
+      "updaterId": "P1",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "physical-operation-evidence-v1"
+      ],
+      "evidenceId": "capability-P1"
+    },
+    {
+      "updaterId": "P2",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "physical-operation-evidence-v1"
+      ],
+      "evidenceId": "capability-P2"
+    },
+    {
+      "updaterId": "P3",
+      "contractVersion": "2.0",
+      "capabilities": [
+        "physical-operation-evidence-v1"
+      ],
+      "evidenceId": "capability-P3"
+    }
+  ]
+}

@@ -1,0 +1,502 @@
+{
+  "requests": [
+    {
+      "resourceKind": "updaterJob",
+      "resourceId": "U3",
+      "query": {
+        "afterJournalSequence": 0,
+        "limit": 3
+      }
+    },
+    {
+      "resourceKind": "updaterJob",
+      "resourceId": "U3",
+      "query": {
+        "afterJournalSequence": 3,
+        "limit": 3,
+        "journalId": "journal-P3-1",
+        "journalHighWatermark": 9
+      }
+    }
+  ],
+  "pages": [
+    {
+      "records": [
+        {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "invoked",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+          },
+          "journalSequence": 1,
+          "links": {
+            "journalRecordId": "journal-record-1",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "notStarted",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        },
+        {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "activationStarted",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "52a102d067799e32c45ca92e146e23186d59ad71f0573a729c8f680bb00a9ffc"
+          },
+          "journalSequence": 2,
+          "links": {
+            "journalRecordId": "journal-record-2",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "unknown",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        },
+        {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "activation",
+          "operationPhase": "completed",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:01:00Z",
+          "completedAtUtc": "2026-09-15T00:02:00Z",
+          "result": "succeeded",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "d475b7fac9548f2ab9a176410711391dde2ad4dded63c832472a41458d87391e"
+          },
+          "journalSequence": 3,
+          "links": {
+            "journalRecordId": "journal-record-3",
+            "markerVersion": "1.2.0",
+            "symlinkTarget": "/releases/1.2.0",
+            "runtimeVersion": "1.2.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "confirmed",
+            "sourceRecordId": "physical-observation-3",
+            "observedAtUtc": "2026-09-15T00:02:00Z"
+          }
+        }
+      ],
+      "nextAfterJournalSequence": 3,
+      "complete": false,
+      "journalHighWatermark": 9,
+      "updaterJobId": "U3",
+      "journalId": "journal-P3-1",
+      "afterJournalSequence": 0,
+      "retentionComplete": true,
+      "proofScope": "journalSnapshot",
+      "operationLifetimeProven": false
+    },
+    {
+      "records": [
+        {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "explicitRollback",
+          "operationPhase": "invoked",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:04:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "356560291e4d663db17c856e43ee3f292f07bff094e1b1b5e64580c680a90b78"
+          },
+          "journalSequence": 7,
+          "links": {
+            "journalRecordId": "journal-record-7",
+            "markerVersion": "1.0.0",
+            "symlinkTarget": "/releases/1.0.0",
+            "runtimeVersion": "1.0.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "notStarted",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        },
+        {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "explicitRollback",
+          "operationPhase": "activationStarted",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:04:00Z",
+          "completedAtUtc": null,
+          "result": "inProgress",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "b1f2cdaafd537b689dde88e4ab2b3d38d9f87d25deb66ec7ca4bd2c481809249"
+          },
+          "journalSequence": 8,
+          "links": {
+            "journalRecordId": "journal-record-8",
+            "markerVersion": "1.0.0",
+            "symlinkTarget": "/releases/1.0.0",
+            "runtimeVersion": "1.0.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "unknown",
+            "sourceRecordId": null,
+            "observedAtUtc": null
+          }
+        },
+        {
+          "contractVersion": "2.0",
+          "updaterId": "P3",
+          "updaterJobId": "U3",
+          "authorizedLeafAgentId": "A3",
+          "operationKind": "explicitRollback",
+          "operationPhase": "completed",
+          "operationAttemptOrdinal": 1,
+          "startedAtUtc": "2026-09-15T00:04:00Z",
+          "completedAtUtc": "2026-09-15T00:05:00Z",
+          "result": "succeeded",
+          "evidenceSource": {
+            "kind": "updaterJournal",
+            "journalId": "journal-P3-1",
+            "recordSha256": "f85856b8d89fecf675eb00e8d9fb08bdeb84007b04658e6311e80096f815ac99"
+          },
+          "journalSequence": 9,
+          "links": {
+            "journalRecordId": "journal-record-9",
+            "markerVersion": "1.0.0",
+            "symlinkTarget": "/releases/1.0.0",
+            "runtimeVersion": "1.0.0",
+            "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "executionEvidence": {
+            "state": "confirmed",
+            "sourceRecordId": "physical-observation-9",
+            "observedAtUtc": "2026-09-15T00:05:00Z"
+          }
+        }
+      ],
+      "nextAfterJournalSequence": null,
+      "complete": true,
+      "journalHighWatermark": 9,
+      "updaterJobId": "U3",
+      "journalId": "journal-P3-1",
+      "afterJournalSequence": 3,
+      "retentionComplete": true,
+      "proofScope": "journalSnapshot",
+      "operationLifetimeProven": false
+    }
+  ],
+  "authoritativeRecords": [
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "invoked",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "ba7c07ae612f8a46e474a141caa995ac0584b90d7449bc48e96832641d9fa5e4"
+      },
+      "journalSequence": 1,
+      "links": {
+        "journalRecordId": "journal-record-1",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "notStarted",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "activationStarted",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "52a102d067799e32c45ca92e146e23186d59ad71f0573a729c8f680bb00a9ffc"
+      },
+      "journalSequence": 2,
+      "links": {
+        "journalRecordId": "journal-record-2",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "unknown",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "completed",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": "2026-09-15T00:02:00Z",
+      "result": "succeeded",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "d475b7fac9548f2ab9a176410711391dde2ad4dded63c832472a41458d87391e"
+      },
+      "journalSequence": 3,
+      "links": {
+        "journalRecordId": "journal-record-3",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "confirmed",
+        "sourceRecordId": "physical-observation-3",
+        "observedAtUtc": "2026-09-15T00:02:00Z"
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "explicitRollback",
+      "operationPhase": "invoked",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:04:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "356560291e4d663db17c856e43ee3f292f07bff094e1b1b5e64580c680a90b78"
+      },
+      "journalSequence": 7,
+      "links": {
+        "journalRecordId": "journal-record-7",
+        "markerVersion": "1.0.0",
+        "symlinkTarget": "/releases/1.0.0",
+        "runtimeVersion": "1.0.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "notStarted",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "explicitRollback",
+      "operationPhase": "activationStarted",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:04:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "b1f2cdaafd537b689dde88e4ab2b3d38d9f87d25deb66ec7ca4bd2c481809249"
+      },
+      "journalSequence": 8,
+      "links": {
+        "journalRecordId": "journal-record-8",
+        "markerVersion": "1.0.0",
+        "symlinkTarget": "/releases/1.0.0",
+        "runtimeVersion": "1.0.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "unknown",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "explicitRollback",
+      "operationPhase": "completed",
+      "operationAttemptOrdinal": 1,
+      "startedAtUtc": "2026-09-15T00:04:00Z",
+      "completedAtUtc": "2026-09-15T00:05:00Z",
+      "result": "succeeded",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "f85856b8d89fecf675eb00e8d9fb08bdeb84007b04658e6311e80096f815ac99"
+      },
+      "journalSequence": 9,
+      "links": {
+        "journalRecordId": "journal-record-9",
+        "markerVersion": "1.0.0",
+        "symlinkTarget": "/releases/1.0.0",
+        "runtimeVersion": "1.0.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "confirmed",
+        "sourceRecordId": "physical-observation-9",
+        "observedAtUtc": "2026-09-15T00:05:00Z"
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "invoked",
+      "operationAttemptOrdinal": 2,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "285890b9e0c0a5ca9557bf307a3b9f2eea79e1a8e32924c2ab27b4dfc5e4ac55"
+      },
+      "journalSequence": 10,
+      "links": {
+        "journalRecordId": "journal-record-1-later",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "notStarted",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "activationStarted",
+      "operationAttemptOrdinal": 2,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": null,
+      "result": "inProgress",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "45d8ff0b1876e131ff0e76de943a75cac94208da5eba373f260435c6c41fcd0f"
+      },
+      "journalSequence": 11,
+      "links": {
+        "journalRecordId": "journal-record-2-later",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "unknown",
+        "sourceRecordId": null,
+        "observedAtUtc": null
+      }
+    },
+    {
+      "contractVersion": "2.0",
+      "updaterId": "P3",
+      "updaterJobId": "U3",
+      "authorizedLeafAgentId": "A3",
+      "operationKind": "activation",
+      "operationPhase": "completed",
+      "operationAttemptOrdinal": 2,
+      "startedAtUtc": "2026-09-15T00:01:00Z",
+      "completedAtUtc": "2026-09-15T00:02:00Z",
+      "result": "succeeded",
+      "evidenceSource": {
+        "kind": "updaterJournal",
+        "journalId": "journal-P3-1",
+        "recordSha256": "e9bfa11ea0f4d9413da00aadab4229e6c7780b48c3b852378d982f3a1ed8077e"
+      },
+      "journalSequence": 12,
+      "links": {
+        "journalRecordId": "journal-record-3-later",
+        "markerVersion": "1.2.0",
+        "symlinkTarget": "/releases/1.2.0",
+        "runtimeVersion": "1.2.0",
+        "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "executionEvidence": {
+        "state": "confirmed",
+        "sourceRecordId": "physical-observation-3-later",
+        "observedAtUtc": "2026-09-15T00:02:00Z"
+      }
+    }
+  ]
+}

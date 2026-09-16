@@ -1,6 +1,6 @@
 # SlamCore OTA Contract
 
-The authoritative, machine-verifiable cross-project contract for **SlamCore Server**, **SlamCore Agent**, and **SlamCore Updater**. Server schedules releases, Agent coordinates a device, Updater applies and recovers release activations, and SlamCoreWeb startup owns ROS build reconciliation. This repository contains contracts only—no product runtime.
+The authoritative, machine-verifiable cross-project contract for **SlamCore Server**, **SlamCore Agent**, and **SlamCore Updater**. Server schedules releases, Agent coordinates devices and relays to child Agents, Updater applies and recovers release activations, and SlamCoreWeb startup owns ROS build reconciliation. This repository contains contracts only—no product runtime.
 
 ## Contract 2.0 responsibility boundary
 
@@ -12,6 +12,16 @@ Repository `2.1.0` adds explicit Server → Agent rollback orchestration without
 
 A release archive uses `SlamCoreWeb/.slamcore-package.json` for strict package metadata. Workspace-root `.slamcore_release` is a different artifact: a one-line SemVer active-release marker written by Updater. It is not included in the ZIP and is never `KEY=VALUE` in Contract 2.0. See the [Integration Specification](docs/SlamCore-OTA-Integration-Spec.md).
 
+## Phase 4 ViaAgent extension
+
+Repository **2.2.0** adds capability-gated Agent topology, immutable single-hop /
+branching / N-hop routes, durable routed U/R commands, root-only status sequence,
+dedicated history, and structured physical-operation evidence. Runtime remains
+**2.0**; all previous schemas and wire semantics are preserved. Every new path
+uses Server → Agent(s) → Updater. See [normative contract](docs/phase4-viaagent.md),
+[acceptance mapping](docs/phase4-acceptance.md), and
+[Phase 4 OpenAPI](openapi/slamcore-phase4-v1.yaml).
+
 ## Layout
 
 - `docs/`: integration specification, governance, compatibility, migration, and handoff notes.
@@ -22,7 +32,7 @@ A release archive uses `SlamCoreWeb/.slamcore-package.json` for strict package m
 
 ## Versions and compatibility
 
-Repository releases use SemVer (`2.1.1` in `VERSION`); runtime payloads and `X-SlamCore-Contract-Version` remain `2.0`. The `2.1.0` command endpoint is additive, and `2.1.1` is its missing-version-evidence patch: the existing update-only endpoint and normal string-version status remain unchanged. Contract 2.0 itself is breaking from 1.x: 1.x consumers cannot send `building`, parse the former KEY=VALUE `.slamcore_release`, or require the former build manifest. See the [migration section](docs/SlamCore-OTA-Integration-Spec.md#10-1x--20-migration), [rollback rollout](docs/SlamCore-OTA-Integration-Spec.md#11-201--210-explicit-rollback-rollout), and [compatibility matrix](docs/compatibility-matrix.md).
+Repository releases use SemVer (`2.2.0` in `VERSION`); runtime payloads and `X-SlamCore-Contract-Version` remain `2.0`. The `2.1.0` command endpoint is additive, and `2.1.1` is its missing-version-evidence patch: the existing update-only endpoint and normal string-version status remain unchanged. Contract 2.0 itself is breaking from 1.x: 1.x consumers cannot send `building`, parse the former KEY=VALUE `.slamcore_release`, or require the former build manifest. See the [migration section](docs/SlamCore-OTA-Integration-Spec.md#10-1x--20-migration), [rollback rollout](docs/SlamCore-OTA-Integration-Spec.md#11-201--210-explicit-rollback-rollout), and [compatibility matrix](docs/compatibility-matrix.md).
 
 ## Validate locally
 
@@ -37,21 +47,21 @@ The validator checks every JSON document/schema, examples, OpenAPI references an
 
 ```bash
 git submodule add <contract-repository-url> contracts/slamcore-ota
-git -C contracts/slamcore-ota checkout contract-v2.1.1
+git -C contracts/slamcore-ota checkout <reviewed-contract-commit>
 git add contracts/slamcore-ota
-git commit -m "chore: upgrade SlamCore OTA contract to 2.1.1"
+git commit -m "chore: 升級至已審查的 OTA Contract 版本"
 ```
 
-Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. Enable rollback command creation only after the device's latest successful registration advertises `explicit-rollback-v1`. Upgrade Server to accept the `2.1.1` unavailable-evidence status before Agent emits it. After merge and CI, a human—not a feature branch—may create `contract-v2.1.1`.
+Pin a reviewed commit/tag; never automatically track `main`. Complete 1.x jobs before coordinated migration of Updater, Agent, and Server. Enable rollback command creation only after the device's latest successful registration advertises `explicit-rollback-v1`. Upgrade Server to accept the `2.1.1` unavailable-evidence status before Agent emits it. After merge and CI, a human—not a feature branch—may create a release tag for the reviewed version.
 
 ## FAQ
 
 **May a consumer add a private state or DTO field?** No. Propose public behavior here first.
 
-**Does v2 require TLS, authentication, or signatures?** No. Package SHA-256 verification remains mandatory.
+**Does Phase 4 require authenticated peers?** Yes. New routed interfaces require independently authenticated adjacent peers and an authorized Leaf at Updater. This repository defines trust requirements, not authentication/PKI implementation. Package SHA-256 remains mandatory; legacy wire requirements are unchanged.
 
 **May Updater reject an unknown Build Manager manifest?** No. It must not inspect that internal file at all.
 
-**Why can a DTO contain an unknown field?** Runtime DTO schemas allow unknown fields for minor-version forward compatibility; release-package metadata remains strict.
+**Why can a DTO contain an unknown field?** Legacy runtime DTO schemas allow unknown fields for minor-version forward compatibility. New capability-gated Phase 4 envelopes and release-package metadata are closed to prevent unsigned semantic ambiguity.
 
 **Can an Agent infer rollback from a lower target version or missing package URL?** No. Only `commandType` selects update versus rollback on the upgraded command endpoint; absent or unknown values fail closed.

@@ -4,6 +4,42 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-15
+
+### Added
+
+- Define capability-gated ViaAgent tree/forest registration, immutable ordered route snapshots and cross-language SHA-256 vectors, authenticated adjacent hops, stable end-to-end correlation, routed U/R commands and durable replay/uncertainty rules.
+- Add Agent command/status reconciliation, root-only status sequence, dedicated Server history with R→U and unavailable version evidence, and explicit never-forwarded U failure evidence without changing legacy status schemas.
+- Add topology-agnostic raw Updater evidence reads and Leaf/Root projections with immutable ordinals/phases, journal/runtime provenance, pagination coverage and explicit unknown versus confirmed physical execution.
+- Add single-hop, branching and N-hop fixtures, durable restart/response-loss/outage transcripts, exact-reason semantic negative cases, compatibility/migration/security guidance and consumer handoff to Server #8/#18, Agent #9 and Updater #55.
+
+### Review corrections
+
+- Validate neverForwarded against retained descendant obligations before proof creation; preserve no-execution exclusions after ACK/restart, rejecting later descendant acceptance or originating write-ahead/forward/acceptance while retaining exact acceptance/status replay.
+
+- Generalize no-execution proof integrity to neverForwarded and firstSubmissionRejected: one origin/receipt/stage and stable terminal event per U, rejecting contradictory ancestor/descendant proofs. Enforce terminal allocation order across all retained Server receipts and Root outbox, while allowing stale lower active observations and exact replay.
+
+- Enforce one stable statusEventId for a U first-submission rejection across source/relay/Root allocation and all retained Server receipts; reject proof replay under a new event ID while preserving exact replay and normal distinct observations.
+
+- Cross-check first-rejection proofs against durable child/descendant acceptance and parent-visible status; reject contradictions with available versions or physical progress across all retained Server receipts atomically in any arrival order. Preserve normal child acceptance/query reconciliation.
+
+- Add a distinct firstSubmissionRejected U proof for the parent's first known-unaccepted Agent request: retain true submission state, complete write-ahead attempt/authenticated-response journal, immutable terminal proof alongside original acceptance, and exact request/response/route correlation. Propagate verified failed/notObserved status through relay, Root and Server history without inventing child receipts or versions. Extend F4 through the full wire path and reject uncertainty/retry/forged-proof cases; coordinate reviewed Contract → Server → Agent pins within this unpublished 2.2.0 additive minor delivery.
+
+- Align Phase 4 error correlation UUID acceptance with the existing attempt header: preserve valid lowercase, uppercase and mixed-case spelling exactly, retaining generated diagnostic UUIDs for missing/malformed headers. Enforce the same canonical 8-4-4-4-12 case-insensitive structure and 36-character bound in both header/error schemas even without format assertion. Keep operationCorrelationId canonical lowercase and legacy 2.0 surfaces unchanged; add examples and exact-echo/invalid-UUID regressions under the recorded Issue #5 architecture decision.
+
+- Enforce the already-defined actual-start bound against a known completion across phase records, including failed/unknown completion and either arrival order; validate partial status evidence before atomic receipt commit while retaining complete-set counting requirements. Add five regression groups without changing the unpublished 2.2.0 wire surface or runtime 2.0.
+
+- Validate Server status acceptance before mutating receipts; reject terminal regressions atomically.
+- Bind physical-start source identity/time across phases and attempts; reject reused confirmation sources and starts after completion.
+- Carry explicit journal/watermark request continuations and snapshot-only proof scope; retain uncertainty after a rejected retry.
+- Carry complete immutable originating rejection receipts through every authenticated upstream Agent and validate real durable A3/A2/A1 status/restart/outbox traces.
+
+### Compatibility decision
+
+- Repository minor version advances to 2.2.0; runtime remains 2.0 under the existing additive-endpoint precedent. Existing registration, pending commands, Agent/Updater payloads, twelve states, U/R rollback, status sequence/expiry and legacy history schemas retain their behavior.
+- Require exact Agent-scoped hierarchical-relay-v1 and Updater physical-operation-evidence-v1 for new routed dispatch; existing explicit-rollback-v1 remains device-scoped. Unknown/missing support fails closed.
+- No consumer runtime, deployment, tag, release, merge or production/HIL qualification is included.
+
 ## [2.1.1] - 2026-09-06
 
 ### Fixed

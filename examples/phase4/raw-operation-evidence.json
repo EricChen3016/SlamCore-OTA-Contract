@@ -1,0 +1,30 @@
+{
+  "contractVersion": "2.0",
+  "updaterId": "P3",
+  "updaterJobId": "U3",
+  "authorizedLeafAgentId": "A3",
+  "operationKind": "explicitRollback",
+  "operationPhase": "completed",
+  "operationAttemptOrdinal": 1,
+  "startedAtUtc": "2026-09-15T00:04:00Z",
+  "completedAtUtc": "2026-09-15T00:05:00Z",
+  "result": "succeeded",
+  "evidenceSource": {
+    "kind": "updaterJournal",
+    "journalId": "journal-P3-1",
+    "recordSha256": "f85856b8d89fecf675eb00e8d9fb08bdeb84007b04658e6311e80096f815ac99"
+  },
+  "journalSequence": 9,
+  "links": {
+    "journalRecordId": "journal-record-9",
+    "markerVersion": "1.0.0",
+    "symlinkTarget": "/releases/1.0.0",
+    "runtimeVersion": "1.0.0",
+    "runtimeArtifactSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "executionEvidence": {
+    "state": "confirmed",
+    "sourceRecordId": "physical-observation-9",
+    "observedAtUtc": "2026-09-15T00:05:00Z"
+  }
+}

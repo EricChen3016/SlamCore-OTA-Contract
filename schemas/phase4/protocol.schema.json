@@ -1,0 +1,1748 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/phase4/protocol.schema.json",
+  "title": "Phase 4 ViaAgent contract definitions",
+  "$defs": {
+    "agentCapability": {
+      "type": "object",
+      "required": [
+        "agentId",
+        "contractVersion",
+        "capabilities",
+        "registrationEventId"
+      ],
+      "properties": {
+        "agentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "registrationEventId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "updaterCapability": {
+      "type": "object",
+      "required": [
+        "updaterId",
+        "contractVersion",
+        "capabilities",
+        "evidenceId"
+      ],
+      "properties": {
+        "updaterId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "evidenceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "attachment": {
+      "type": "object",
+      "required": [
+        "deviceId",
+        "updaterId",
+        "agentId",
+        "capability"
+      ],
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "updaterId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "capability": {
+          "$ref": "#/$defs/deviceCapability"
+        }
+      },
+      "additionalProperties": false
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "observationEventId",
+        "agent",
+        "observedParentAgentId",
+        "directChildAgentIds",
+        "directDevices",
+        "observedTopologyVersion",
+        "observedAtUtc"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "observationEventId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "agent": {
+          "$ref": "#/$defs/agentCapability"
+        },
+        "observedParentAgentId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "directChildAgentIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "directDevices": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attachment"
+          },
+          "minItems": 0
+        },
+        "observedTopologyVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "observedAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "topology": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "serverId",
+        "topologyVersion",
+        "createdAtUtc",
+        "agents",
+        "parentLinks",
+        "attachments",
+        "updaters"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "serverId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "topologyVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "createdAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/agentCapability"
+          },
+          "minItems": 1
+        },
+        "parentLinks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "parentAgentId",
+              "childAgentId"
+            ],
+            "properties": {
+              "parentAgentId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+              },
+              "childAgentId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+              }
+            },
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/attachment"
+          },
+          "minItems": 0
+        },
+        "updaters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/updaterCapability"
+          },
+          "minItems": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "routeSnapshot": {
+      "type": "object",
+      "required": [
+        "routeId",
+        "routeVersion",
+        "routeSnapshotHash",
+        "topologyVersion",
+        "serverId",
+        "targetDeviceId",
+        "targetUpdaterId",
+        "orderedAgentIds",
+        "capabilitySnapshot",
+        "createdAtUtc"
+      ],
+      "properties": {
+        "routeId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "routeVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "routeSnapshotHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "topologyVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "serverId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "targetDeviceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "targetUpdaterId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "orderedAgentIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+          },
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true
+        },
+        "capabilitySnapshot": {
+          "type": "object",
+          "required": [
+            "agents",
+            "updater",
+            "device"
+          ],
+          "properties": {
+            "agents": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/agentCapability"
+              },
+              "minItems": 1,
+              "maxItems": 32
+            },
+            "updater": {
+              "$ref": "#/$defs/updaterCapability"
+            },
+            "device": {
+              "$ref": "#/$defs/deviceCapability"
+            }
+          },
+          "additionalProperties": false
+        },
+        "createdAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "hopContext": {
+      "type": "object",
+      "required": [
+        "hopId",
+        "hopIndex",
+        "direction",
+        "senderKind",
+        "senderId",
+        "receiverKind",
+        "receiverId",
+        "routeSnapshotHash"
+      ],
+      "properties": {
+        "hopId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "hopIndex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 32
+        },
+        "direction": {
+          "enum": [
+            "downstream",
+            "upstream"
+          ]
+        },
+        "senderKind": {
+          "enum": [
+            "server",
+            "agent",
+            "updater"
+          ]
+        },
+        "senderId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "receiverKind": {
+          "enum": [
+            "server",
+            "agent",
+            "updater"
+          ]
+        },
+        "receiverId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "routeSnapshotHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "updatePayload": {
+      "title": "UpdateRequest",
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "jobId",
+        "targetVersion",
+        "packageUrl",
+        "packageSha256",
+        "platform"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "targetVersion": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+        },
+        "packageUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "packageSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "platform": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rollbackPayload": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "jobId"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "command": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "commandType",
+        "serverCommandJobId",
+        "originalUpdateJobId",
+        "updaterJobId",
+        "operationCorrelationId",
+        "targetDeviceId",
+        "routeSnapshot",
+        "requiredCapability",
+        "createdAtUtc",
+        "expiresAtUtc",
+        "payload",
+        "hopContext"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "commandType": {
+          "enum": [
+            "update",
+            "rollback"
+          ]
+        },
+        "serverCommandJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "originalUpdateJobId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updaterJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "operationCorrelationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "targetDeviceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "routeSnapshot": {
+          "$ref": "#/$defs/routeSnapshot"
+        },
+        "requiredCapability": {
+          "const": "hierarchical-relay-v1"
+        },
+        "createdAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        },
+        "expiresAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        },
+        "payload": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/updatePayload"
+            },
+            {
+              "$ref": "#/$defs/rollbackPayload"
+            }
+          ]
+        },
+        "hopContext": {
+          "$ref": "#/$defs/hopContext"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "commandType": {
+                "const": "update"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "originalUpdateJobId": {
+                "type": "null"
+              },
+              "payload": {
+                "$ref": "#/$defs/updatePayload"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "originalUpdateJobId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+              },
+              "payload": {
+                "$ref": "#/$defs/rollbackPayload"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "statusEvent": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "commandType",
+        "serverCommandJobId",
+        "originalUpdateJobId",
+        "updaterJobId",
+        "operationCorrelationId",
+        "targetDeviceId",
+        "routeSnapshot",
+        "statusEventId",
+        "hopContext",
+        "state",
+        "progressPercent",
+        "message",
+        "errorCode",
+        "versionEvidence",
+        "observedAtUtc",
+        "physicalEvidence"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "commandType": {
+          "enum": [
+            "update",
+            "rollback"
+          ]
+        },
+        "serverCommandJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "originalUpdateJobId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updaterJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "operationCorrelationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "targetDeviceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "routeSnapshot": {
+          "$ref": "#/$defs/routeSnapshot"
+        },
+        "statusEventId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "hopContext": {
+          "$ref": "#/$defs/hopContext"
+        },
+        "state": {
+          "description": "Updater operation state. rolled_back is successful completion for an explicit rollback command R, but failed-update recovery for an update command U; Server projects the terminal result using commandType.",
+          "enum": [
+            "queued",
+            "checking",
+            "downloading",
+            "verifying",
+            "backing_up",
+            "installing",
+            "restarting",
+            "health_checking",
+            "completed",
+            "failed",
+            "rolling_back",
+            "rolled_back"
+          ]
+        },
+        "progressPercent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1024
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "versionEvidence": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": [
+                "availability",
+                "fromVersion",
+                "targetVersion"
+              ],
+              "properties": {
+                "availability": {
+                  "const": "available"
+                },
+                "fromVersion": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+                },
+                "targetVersion": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "availability",
+                "fromVersion",
+                "targetVersion"
+              ],
+              "properties": {
+                "availability": {
+                  "const": "unavailable"
+                },
+                "fromVersion": {
+                  "type": "null"
+                },
+                "targetVersion": {
+                  "type": "null"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "availability",
+                "fromVersion",
+                "targetVersion"
+              ],
+              "properties": {
+                "availability": {
+                  "const": "notObserved"
+                },
+                "fromVersion": {
+                  "type": "null"
+                },
+                "targetVersion": {
+                  "type": "null"
+                }
+              }
+            }
+          ]
+        },
+        "observedAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        },
+        "physicalEvidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projectedEvidence"
+          },
+          "minItems": 0
+        },
+        "failureEvidence": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/neverForwardedFailureEvidence"
+            },
+            {
+              "$ref": "#/$defs/firstSubmissionRejectedFailureEvidence"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "commandType": {
+                "const": "rollback"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "queued",
+                  "rolling_back",
+                  "rolled_back",
+                  "failed"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "versionEvidence": {
+                "properties": {
+                  "availability": {
+                    "const": "unavailable"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "commandType": {
+                "const": "rollback"
+              },
+              "state": {
+                "const": "failed"
+              },
+              "errorCode": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]*$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "versionEvidence": {
+                "properties": {
+                  "availability": {
+                    "const": "notObserved"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "failureEvidence"
+            ],
+            "properties": {
+              "commandType": {
+                "const": "update"
+              },
+              "state": {
+                "const": "failed"
+              },
+              "physicalEvidence": {
+                "maxItems": 0
+              },
+              "errorCode": {
+                "enum": [
+                  "COMMAND_EXPIRED",
+                  "STALE_ROUTE",
+                  "ROUTE_MISMATCH",
+                  "INVALID_ADJACENCY",
+                  "CAPABILITY_MISMATCH"
+                ]
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "failureEvidence"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "failureEvidence"
+            ],
+            "properties": {
+              "failureEvidence": {
+                "properties": {
+                  "stage": {
+                    "const": "firstSubmissionRejected"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "errorCode": {
+                "enum": [
+                  "STALE_ROUTE",
+                  "ROUTE_MISMATCH",
+                  "INVALID_ADJACENCY",
+                  "CAPABILITY_MISMATCH"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "rootStatus": {
+      "type": "object",
+      "required": [
+        "event",
+        "sequence",
+        "rootAgentId"
+      ],
+      "properties": {
+        "event": {
+          "$ref": "#/$defs/statusEvent"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "rootAgentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "historyPage": {
+      "type": "object",
+      "required": [
+        "items",
+        "nextCursor"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rootStatus"
+          },
+          "minItems": 0
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "serverCommandJobId",
+        "routeSnapshotHash",
+        "semanticFingerprint",
+        "acceptedAtUtc",
+        "obligationState",
+        "command",
+        "downstreamEverSubmitted",
+        "receiptId"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "serverCommandJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "routeSnapshotHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "semanticFingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "acceptedAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        },
+        "obligationState": {
+          "enum": [
+            "pending",
+            "unknown",
+            "accepted",
+            "terminal"
+          ]
+        },
+        "command": {
+          "$ref": "#/$defs/command"
+        },
+        "downstreamEverSubmitted": {
+          "type": "boolean"
+        },
+        "receiptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "pendingPage": {
+      "type": "object",
+      "required": [
+        "commands",
+        "nextCursor"
+      ],
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command"
+          },
+          "minItems": 0
+        },
+        "nextCursor": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeEvidence": {
+      "type": "object",
+      "required": [
+        "journalRecordId",
+        "markerVersion",
+        "symlinkTarget",
+        "runtimeVersion",
+        "runtimeArtifactSha256"
+      ],
+      "properties": {
+        "journalRecordId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "markerVersion": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "symlinkTarget": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "runtimeVersion": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "runtimeArtifactSha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rawEvidence": {
+      "type": "object",
+      "required": [
+        "contractVersion",
+        "updaterId",
+        "updaterJobId",
+        "authorizedLeafAgentId",
+        "operationKind",
+        "operationPhase",
+        "operationAttemptOrdinal",
+        "startedAtUtc",
+        "completedAtUtc",
+        "result",
+        "evidenceSource",
+        "journalSequence",
+        "links",
+        "executionEvidence"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "2.0"
+        },
+        "updaterId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "updaterJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "authorizedLeafAgentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "operationKind": {
+          "enum": [
+            "activation",
+            "automaticRecovery",
+            "explicitRollback"
+          ]
+        },
+        "operationPhase": {
+          "enum": [
+            "invoked",
+            "activationStarted",
+            "completed"
+          ]
+        },
+        "operationAttemptOrdinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "startedAtUtc": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+        },
+        "completedAtUtc": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "enum": [
+            "inProgress",
+            "succeeded",
+            "failed"
+          ]
+        },
+        "evidenceSource": {
+          "type": "object",
+          "required": [
+            "kind",
+            "journalId",
+            "recordSha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "updaterJournal"
+            },
+            "journalId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            "recordSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "additionalProperties": false
+        },
+        "journalSequence": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "links": {
+          "$ref": "#/$defs/runtimeEvidence"
+        },
+        "executionEvidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "sourceRecordId",
+            "observedAtUtc"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "notStarted",
+                "unknown",
+                "confirmed"
+              ]
+            },
+            "sourceRecordId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "observedAtUtc": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "description": "For confirmed execution, (updaterId, sourceRecordId) uniquely identifies one physical start across jobs, kinds, ordinals and journal rotations. observedAtUtc is the immutable actual start time in the source, not later receipt/recording time; all confirmed phases repeat the same source/time and it cannot exceed completedAtUtc."
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "operationPhase": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "completedAtUtc": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+              },
+              "result": {
+                "enum": [
+                  "succeeded",
+                  "failed"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "completedAtUtc": {
+                "type": "null"
+              },
+              "result": {
+                "const": "inProgress"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "projectedEvidence": {
+      "type": "object",
+      "required": [
+        "serverCommandJobId",
+        "originalUpdateJobId",
+        "updaterJobId",
+        "operationCorrelationId",
+        "authorizedLeafAgentId",
+        "routeSnapshotHash",
+        "source"
+      ],
+      "properties": {
+        "serverCommandJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "originalUpdateJobId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updaterJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "operationCorrelationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9a-f-]{36}$"
+        },
+        "authorizedLeafAgentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "routeSnapshotHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source": {
+          "$ref": "#/$defs/rawEvidence"
+        }
+      },
+      "additionalProperties": false
+    },
+    "rawEvidencePage": {
+      "type": "object",
+      "required": [
+        "records",
+        "nextAfterJournalSequence",
+        "complete",
+        "journalHighWatermark",
+        "updaterJobId",
+        "journalId",
+        "afterJournalSequence",
+        "retentionComplete",
+        "proofScope",
+        "operationLifetimeProven"
+      ],
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rawEvidence"
+          },
+          "minItems": 0
+        },
+        "nextAfterJournalSequence": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "journalHighWatermark": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updaterJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "journalId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "afterJournalSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retentionComplete": {
+          "type": "boolean"
+        },
+        "proofScope": {
+          "const": "journalSnapshot"
+        },
+        "operationLifetimeProven": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidencePage": {
+      "type": "object",
+      "required": [
+        "records",
+        "nextAfterJournalSequence",
+        "complete",
+        "journalHighWatermark",
+        "updaterJobId",
+        "journalId",
+        "afterJournalSequence",
+        "retentionComplete",
+        "proofScope",
+        "operationLifetimeProven",
+        "serverCommandJobId"
+      ],
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/projectedEvidence"
+          },
+          "minItems": 0
+        },
+        "nextAfterJournalSequence": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "journalHighWatermark": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updaterJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "journalId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "afterJournalSequence": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "retentionComplete": {
+          "type": "boolean"
+        },
+        "proofScope": {
+          "const": "journalSnapshot"
+        },
+        "operationLifetimeProven": {
+          "const": false
+        },
+        "serverCommandJobId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "type",
+        "title",
+        "status",
+        "code",
+        "detail",
+        "correlationId",
+        "retryable"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "format": "uri"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "integer",
+          "minimum": 400,
+          "maximum": 599
+        },
+        "code": {
+          "enum": [
+            "VALIDATION_FAILED",
+            "RESOURCE_NOT_FOUND",
+            "UPDATE_ALREADY_RUNNING",
+            "IDEMPOTENCY_CONFLICT",
+            "INCOMPATIBLE_RELEASE",
+            "DEPENDENCY_UNAVAILABLE",
+            "OPERATION_TIMEOUT",
+            "INVALID_TOPOLOGY",
+            "STALE_ROUTE",
+            "ROUTE_MISMATCH",
+            "INVALID_ADJACENCY",
+            "CAPABILITY_MISMATCH",
+            "UNAUTHORIZED_PEER",
+            "EVIDENCE_SNAPSHOT_MISMATCH"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correlationId": {
+          "type": "string",
+          "format": "uuid",
+          "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+          "maxLength": 36
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "eventPage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "events",
+        "nextCursor"
+      ],
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statusEvent"
+          }
+        },
+        "nextCursor": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      }
+    },
+    "deviceCapability": {
+      "type": "object",
+      "required": [
+        "deviceId",
+        "capabilities",
+        "registrationEventId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "deviceId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          }
+        },
+        "registrationEventId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        }
+      }
+    },
+    "neverForwardedFailureEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "agentId",
+        "obligationReceiptId",
+        "originReceipt",
+        "originReceiptHash"
+      ],
+      "properties": {
+        "stage": {
+          "const": "neverForwarded"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "obligationReceiptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "originReceipt": {
+          "$ref": "#/$defs/receipt"
+        },
+        "originReceiptHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "firstSubmissionRejectedFailureEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "agentId",
+        "obligationReceiptId",
+        "originReceipt",
+        "originReceiptHash",
+        "rejectionProof",
+        "rejectionProofHash"
+      ],
+      "properties": {
+        "stage": {
+          "const": "firstSubmissionRejected"
+        },
+        "agentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "obligationReceiptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "originReceipt": {
+          "$ref": "#/$defs/receipt"
+        },
+        "originReceiptHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rejectionProof": {
+          "$ref": "#/$defs/firstSubmissionRejectionProof"
+        },
+        "rejectionProofHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "firstSubmissionRejectionProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parentAgentId",
+        "childAgentId",
+        "obligationReceiptId",
+        "journalId",
+        "journalComplete",
+        "records"
+      ],
+      "properties": {
+        "parentAgentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "childAgentId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "obligationReceiptId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "journalId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "journalComplete": {
+          "const": true
+        },
+        "records": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "journalSequence",
+                "kind",
+                "attemptOrdinal",
+                "request",
+                "requestFingerprint",
+                "idempotencyKey",
+                "correlationId",
+                "recordedAtUtc"
+              ],
+              "properties": {
+                "journalSequence": {
+                  "const": 1
+                },
+                "kind": {
+                  "const": "submission"
+                },
+                "attemptOrdinal": {
+                  "const": 1
+                },
+                "request": {
+                  "$ref": "#/$defs/command"
+                },
+                "requestFingerprint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "idempotencyKey": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "correlationId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$",
+                  "maxLength": 36
+                },
+                "recordedAtUtc": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "journalSequence",
+                "kind",
+                "attemptOrdinal",
+                "authenticatedChildAgentId",
+                "response",
+                "recordedAtUtc",
+                "httpStatus"
+              ],
+              "properties": {
+                "journalSequence": {
+                  "const": 2
+                },
+                "kind": {
+                  "const": "rejection"
+                },
+                "attemptOrdinal": {
+                  "const": 1
+                },
+                "authenticatedChildAgentId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+                },
+                "response": {
+                  "$ref": "#/$defs/error"
+                },
+                "recordedAtUtc": {
+                  "type": "string",
+                  "format": "date-time",
+                  "pattern": "^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\dZ$"
+                },
+                "httpStatus": {
+                  "enum": [
+                    409,
+                    422
+                  ]
+                }
+              }
+            }
+          ],
+          "items": false
+        }
+      }
+    }
+  }
+}
