@@ -15,7 +15,7 @@ All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Review corrections
 
-- Align Phase 4 error correlation UUID acceptance with the existing attempt header: preserve valid lowercase, uppercase and mixed-case spelling exactly, retaining generated diagnostic UUIDs for missing/malformed headers. Keep operationCorrelationId canonical lowercase and legacy 2.0 surfaces unchanged; add examples and exact-echo/invalid-UUID regressions under the recorded Issue #5 architecture decision.
+- Align Phase 4 error correlation UUID acceptance with the existing attempt header: preserve valid lowercase, uppercase and mixed-case spelling exactly, retaining generated diagnostic UUIDs for missing/malformed headers. Enforce the same canonical 8-4-4-4-12 case-insensitive structure and 36-character bound in both header/error schemas even without format assertion. Keep operationCorrelationId canonical lowercase and legacy 2.0 surfaces unchanged; add examples and exact-echo/invalid-UUID regressions under the recorded Issue #5 architecture decision.
 
 - Enforce the already-defined actual-start bound against a known completion across phase records, including failed/unknown completion and either arrival order; validate partial status evidence before atomic receipt commit while retaining complete-set counting requirements. Add five regression groups without changing the unpublished 2.2.0 wire surface or runtime 2.0.
 

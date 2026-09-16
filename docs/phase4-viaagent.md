@@ -125,8 +125,11 @@ identity is immutable across retry, restart, command, status and history.
 `X-Correlation-Id` remains a UUID for one HTTP hop/attempt. Attempts may choose a
 new value. Valid UUID lowercase, uppercase and mixed-case spellings are accepted.
 ErrorResponse.correlationId MUST echo the triggering valid header's exact string,
-without lowercasing or any other normalization. Its schema retains UUID format
-validation; arbitrary strings are not valid correlations. If the header is absent
+without lowercasing or any other normalization. Both header and error correlation
+schemas require the same canonical 36-character hexadecimal 8-4-4-4-12 UUID structure,
+in either letter case, as well as UUID format. The structural pattern and length
+bound remain enforced when a JSON Schema validator treats format only as annotation;
+extra/misplaced hyphens, trailing whitespace and arbitrary strings are invalid. If the header is absent
 or malformed, the service generates a diagnostic UUID because no valid echo exists.
 This attempt-header rule does not change canonical lowercase operationCorrelationId,
 route/hop hashes or replay fingerprints. Correlation never substitutes for a job ID,

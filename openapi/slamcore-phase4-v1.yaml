@@ -1360,7 +1360,8 @@ components:
       in: header
       required: true
       description: Per HTTP hop/attempt UUID, accepting valid lowercase, uppercase,
-        and mixed-case spellings. ErrorResponse.correlationId MUST echo the exact
+        and mixed-case spellings in the canonical 8-4-4-4-12 UUID structure.
+        ErrorResponse.correlationId MUST echo the exact
         valid header string without lowercasing or any other normalization. Never
         replaces the canonical lowercase operationCorrelationId. Missing/malformed
         header returns VALIDATION_FAILED with a generated diagnostic UUID when no
@@ -1368,6 +1369,8 @@ components:
       schema:
         type: string
         format: uuid
+        pattern: '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$'
+        maxLength: 36
     IdempotencyKey:
       name: Idempotency-Key
       in: header

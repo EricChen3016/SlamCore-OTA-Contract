@@ -110,7 +110,8 @@ def run(report_error):
               relayed_origin_proof, adjacent_status_durability,
               cross_phase_time_counts, cross_phase_time_batch, cross_phase_time_prefix,
               cross_phase_time_reverse, cross_phase_time_boundaries,
-              attempt_correlation_echo, attempt_correlation_invalid, operation_correlation_lowercase]
+              attempt_correlation_echo, attempt_correlation_invalid, operation_correlation_lowercase,
+              attempt_correlation_structural]
     for check in checks:
         try:
             check()
@@ -349,7 +350,10 @@ def attempt_correlation_invalid():
                                      format_checker=p.FormatChecker())
     for invalid in (None, '', 'not-a-uuid', '123e4567e89b42d3a456426614174000',
                     '123G4567-e89b-42d3-a456-426614174000',
-                    ' 123e4567-e89b-42d3-a456-426614174000 '):
+                    ' 123e4567-e89b-42d3-a456-426614174000 ',
+                    '123e4567-e89b-42d3-a456-426614174000-',
+                    '123e4567-e89b-42d3-a456-4266-14174000',
+                    '123e4567-e89b-42d3-a456-426614174000\n'):
         assert not validator.is_valid(invalid)
         diagnostic = load('error-400.json')
         p.error_correlation(diagnostic, invalid)
@@ -370,3 +374,29 @@ def operation_correlation_lowercase():
                         '123E4567-e89B-42d3-A456-426614174000', 'not-a-uuid'):
             value['operationCorrelationId'] = invalid
             rejected('SCHEMA', lambda: p.shape(schema, value))
+
+
+def attempt_correlation_structural():
+    document = yaml.safe_load((FIXTURES.parents[1] / 'openapi/slamcore-phase4-v1.yaml').read_text())
+    header = document['components']['parameters']['CorrelationId']['schema']
+    wrapper = json.loads((FIXTURES.parents[1] / 'schemas/phase4/error-response.schema.json').read_text())
+    invalid_values = [None, 42, '', 'not-a-uuid', '123e4567e89b42d3a456426614174000',
+                      '123G4567-e89b-42d3-a456-426614174000',
+                      '123e4567-e89b-42d3-a456-426614174000-',
+                      '123e4567-e89b-42d3-a456-4266-14174000',
+                      '123e4567--e89b-42d3-a456-426614174000',
+                      '123e4567_e89b_42d3_a456_426614174000',
+                      '123e4567-e89b-42d3-a456-426614174000\n',
+                      ' 123e4567-e89b-42d3-a456-426614174000 ']
+    for checker in (None, p.FormatChecker()):
+        request_validator = p.Draft202012Validator(header, format_checker=checker)
+        response_validator = p.Draft202012Validator(wrapper, registry=p.schema_registry(), format_checker=checker)
+        for case in ('lowercase', 'mixedcase', 'uppercase'):
+            error = load('error-correlation-' + case + '.json')
+            assert request_validator.is_valid(error['correlationId'])
+            assert response_validator.is_valid(error)
+        for invalid in invalid_values:
+            assert not request_validator.is_valid(invalid), ('header accepted', repr(invalid), checker)
+            error = load('error-400.json')
+            error['correlationId'] = invalid
+            assert not response_validator.is_valid(error), ('error accepted', repr(invalid), checker)

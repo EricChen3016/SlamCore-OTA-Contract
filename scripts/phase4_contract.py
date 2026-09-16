@@ -382,7 +382,10 @@ def evidence_counts(records):
 def error_correlation(value, triggering_header):
     """Check exact valid attempt UUID echo, or a schema-valid diagnostic UUID."""
     shape('error-response', value)
-    if isinstance(triggering_header, str) and FormatChecker().conforms(triggering_header, 'uuid'):
+    protocol = json.loads((ROOT / 'schemas/phase4/protocol.schema.json').read_text())
+    correlation_schema = protocol['$defs']['error']['properties']['correlationId']
+    validator = Draft202012Validator(correlation_schema, format_checker=FormatChecker())
+    if validator.is_valid(triggering_header):
         require(value['correlationId'] == triggering_header, 'ERROR_CORRELATION_ECHO')
 
 
