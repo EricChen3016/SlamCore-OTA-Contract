@@ -268,21 +268,30 @@ def rejection_proof_hash(proof):
 
 
 def rejection_facts(events):
-    """A first pre-acceptance failure cannot coexist with known U progress."""
+    """A no-execution terminal proof has one immutable origin and event per U."""
     grouped = defaultdict(list)
     for event in events:
         grouped[event['serverCommandJobId']].append(event)
     for observations in grouped.values():
-        terminal_ids = {e['statusEventId'] for e in observations if e.get('failureEvidence', {}).get('stage') == 'firstSubmissionRejected'}
-        require(len(terminal_ids) <= 1, 'REJECTION_EVENT_REASSIGNMENT')
-        for first in observations:
-            failure = first.get('failureEvidence', {})
-            if failure.get('stage') != 'firstSubmissionRejected':
-                continue
-            require(not any(e['versionEvidence']['availability'] == 'available' or e['physicalEvidence'] for e in observations), 'REJECTION_KNOWN_PROGRESS')
-            agents = first['routeSnapshot']['orderedAgentIds']
-            descendants = agents[agents.index(failure['agentId']) + 1:]
-            require(not any(e.get('failureEvidence', {}).get('agentId') in descendants for e in observations), 'REJECTION_KNOWN_PROGRESS')
+        failures = [e for e in observations if 'failureEvidence' in e]
+        if not failures:
+            continue
+        origins = {(e['failureEvidence']['stage'], e['failureEvidence']['agentId'],
+                    e['failureEvidence']['obligationReceiptId']) for e in failures}
+        require(len(origins) == 1, 'REJECTION_FAILURE_CONFLICT')
+        require(len({e['statusEventId'] for e in failures}) == 1, 'REJECTION_EVENT_REASSIGNMENT')
+        require(not any(e['versionEvidence']['availability'] == 'available' or e['physicalEvidence'] for e in observations), 'REJECTION_KNOWN_PROGRESS')
+
+
+def terminal_facts(envelopes):
+    """HTTP arrival order cannot permit an allocation after terminal sequence."""
+    grouped = defaultdict(list)
+    for body in envelopes:
+        grouped[body['event']['serverCommandJobId']].append(body)
+    for observations in grouped.values():
+        high = max(body['sequence'] for body in observations)
+        require(all(body['sequence'] == high for body in observations
+                    if body['event']['state'] in ('completed','failed','rolled_back')), 'TERMINAL_REGRESSION')
 
 
 def first_rejection(value, obligation):
@@ -349,6 +358,7 @@ def server_ingest(value, obligation, receipts, latest=None):
     # Missing phases may arrive later; contradictory known times cannot be committed.
     evidence_facts([item['source'] for envelope in [*receipts.values(), value]
                     for item in envelope['event']['physicalEvidence']])
+    terminal_facts([*receipts.values(), value])
     # Commit only after every rejection condition has been evaluated.
     receipts[key] = copy.deepcopy(value)
     return candidate
@@ -481,17 +491,18 @@ def transcript(value, commands):
         event_key = (actor, job, event['statusEventId'])
         require(event_key in events, 'OBSERVE_BEFORE_SEQUENCE')
         rejection_facts([event] + [body['event'] for (j, _), body in outbox.items() if j == job])
+        projected = copy.deepcopy(event)
+        projected['hopContext'] = expected_hop(c['routeSnapshot'], job, 'upstream', 0)
+        body = dict(event=projected, sequence=sequence, rootAgentId=actor)
+        root_status(body, c)
         identity_key = (job, event['statusEventId'])
         if identity_key in root_events:
             require(root_events[identity_key] == sequence, 'EVENT_SEQUENCE_REASSIGNMENT')
         else:
             sequences = [s for (j, _), s in root_events.items() if j == job]
             require(sequence == (max(sequences) + 1 if sequences else 0), 'SEQUENCE_GAP')
-            root_events[identity_key] = sequence
-        projected = copy.deepcopy(event)
-        projected['hopContext'] = expected_hop(c['routeSnapshot'], job, 'upstream', 0)
-        body = dict(event=projected, sequence=sequence, rootAgentId=actor)
-        root_status(body, c)
+        terminal_facts([*outbox.values(), body])
+        root_events[identity_key] = sequence
         key = (job, sequence)
         require(key not in outbox or outbox[key] == body, 'SEQUENCE_CONFLICT')
         outbox[key] = body
@@ -634,7 +645,7 @@ def transcript(value, commands):
             require(event['serverCommandJobId'] == job, 'STATUS_IDENTITY')
             event_key = (actor, job, event_id)
             source_key = (job, event_id)
-            rejection_facts([event] + [e for (a, j, _), e in events.items() if a == actor and j == job])
+            rejection_facts([event] + [e for (a, j, _), e in events.items() if j == job])
             fp = event_fingerprint(event)
             if action == 'observe':
                 origin = event.get('failureEvidence', {}).get('agentId', route_agents[-1])

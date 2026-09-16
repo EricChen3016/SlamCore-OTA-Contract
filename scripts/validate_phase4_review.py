@@ -45,8 +45,13 @@ def atomic_ingest():
     gap = copy.deepcopy(terminal)
     gap['sequence'] = 3
     gap['event']['statusEventId'] = 'event-R3-gap-terminal'
+    active = copy.deepcopy(terminal)
+    active['event'].update(state='rolling_back',errorCode=None,statusEventId='event-R3-earlier-active')
+    active['event']['physicalEvidence'] = []
+    receipts = {}
+    latest = p.server_ingest(active, obligation, receipts)
     latest = p.server_ingest(gap, obligation, receipts, latest)
-    assert p.server_ingest(terminal, obligation, receipts, latest) == latest
+    assert p.server_ingest(active, obligation, receipts, latest) == latest
     assert p.server_ingest(gap, obligation, receipts, latest) == latest
     assert len(receipts) == 2
 
@@ -310,7 +315,10 @@ def cross_phase_time_boundaries():
         for parts in ((records[:2], records[2:]), (records[2:], records[:2])):
             receipts, latest = {}, None
             for sequence, part in enumerate(parts):
-                latest = p.server_ingest(time_status(part, sequence), obligation, receipts, latest)
+                body = time_status(part, sequence)
+                if sequence == 0:
+                    body['event'].update(state='installing',errorCode=None)
+                latest = p.server_ingest(body, obligation, receipts, latest)
             assert len(receipts) == 2 and latest['sequence'] == 1
     p.evidence_facts(records[2:])
     rejected('MISSING_INVOCATION', lambda: p.evidence_counts(records[2:]))

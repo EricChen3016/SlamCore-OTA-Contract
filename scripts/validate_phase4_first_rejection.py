@@ -43,7 +43,7 @@ def propagate():
 
 
 def run(report_error):
-    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest, child_acceptance_contradiction, retained_progress_contradiction, stable_rejection_event]
+    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest, child_acceptance_contradiction, retained_progress_contradiction, stable_rejection_event, no_execution_integrity, retained_terminal_order]
     for check in checks:
         try:
             check()
@@ -299,7 +299,7 @@ def retained_progress_contradiction():
         second['sequence'] = 3
         receipts = {};latest = p.server_ingest(first,command,receipts)
         before = copy.deepcopy((receipts,latest))
-        rejected('REJECTION_KNOWN_PROGRESS',lambda:p.server_ingest(second,command,receipts,latest))
+        rejected('REJECTION_FAILURE_CONFLICT',lambda:p.server_ingest(second,command,receipts,latest))
         assert (receipts,latest) == before
     # The existing local-allocation and status validators also reject this pairing.
     progress = dict(event=known,sequence=0,rootAgentId='A1')
@@ -361,3 +361,82 @@ def stable_rejection_event():
         for body in inputs: latest = p.server_ingest(body,command,receipts,latest)
         assert latest == completed and len(receipts)==2
         assert p.server_ingest(copy.deepcopy(inputs[0]),command,receipts,latest)==completed
+
+
+def no_execution_integrity():
+    command = load('n-hop-update.json')
+    first = load('first-submission-rejected-root-status.json')
+    leaf = copy.deepcopy(load('never-forwarded-history.json')['items'][0])
+    ancestor = copy.deepcopy(leaf)
+    event = ancestor['event'];event['statusEventId']='event-U3-A1-never-forwarded'
+    failure = event['failureEvidence'];failure['agentId']='A1'
+    failure['obligationReceiptId'] = 'receipt-U3-A1-never-forwarded'
+    receipt = failure['originReceipt'];receipt['receiptId']=failure['obligationReceiptId']
+    receipt['command']['hopContext'] = p.expected_hop(command['routeSnapshot'],'U3','downstream',0)
+    failure['originReceiptHash'] = p.digest(receipt)
+    for left, right in ((first,ancestor),(leaf,ancestor)):
+        for reverse in (False,True):
+            a,b = (right,left) if reverse else (left,right)
+            a,b = copy.deepcopy(a),copy.deepcopy(b);a['sequence']=0;b['sequence']=3
+            p.root_status(a,command);p.root_status(b,command)
+            receipts={};latest=p.server_ingest(a,command,receipts)
+            before=copy.deepcopy((receipts,latest))
+            rejected('REJECTION_FAILURE_CONFLICT',lambda:p.server_ingest(b,command,receipts,latest))
+            rejected('REJECTION_FAILURE_CONFLICT',lambda:p.server_ingest(b,command,receipts))
+            rejected('REJECTION_FAILURE_CONFLICT',lambda:p.status(b['event'],command,('agent','A1'),('server','server-1'),a['event']))
+            assert before==(receipts,latest)
+            b['sequence']=1
+            rejected('REJECTION_FAILURE_CONFLICT',lambda:p.root_status(b,command,a))
+    duplicate=copy.deepcopy(ancestor);duplicate['event']['statusEventId']+='-duplicate';duplicate['sequence']=1
+    receipts={};latest=p.server_ingest(ancestor,command,receipts)
+    before=copy.deepcopy((receipts,latest))
+    rejected('REJECTION_EVENT_REASSIGNMENT',lambda:p.server_ingest(duplicate,command,receipts,latest))
+    assert before==(receipts,latest)
+    assert p.server_ingest(copy.deepcopy(ancestor),command,receipts,latest)==latest
+    # No-execution proofs at two different route origins cannot coexist even in
+    # a complete source trace before either proof reaches the other Agent.
+    steps,_,_=traced_rejection()
+    prefix=copy.deepcopy(steps[:9])
+    prefix.insert(1,dict(action='observe',actor='A1',job='U3',event=ancestor['event'],sequence=0))
+    rejected('REJECTION_FAILURE_CONFLICT',lambda:p.transcript(dict(steps=prefix),{'U3':command}))
+
+
+def retained_terminal_order():
+    command=load('n-hop-update.json')
+    event=next(x['event'] for x in load('durable-transcript.json')['steps'] if x['action']=='observe' and x['job']=='U3')
+    event['hopContext']=p.expected_hop(command['routeSnapshot'],'U3','upstream',0)
+    for terminal_state in ('completed','failed'):
+        terminal=dict(event=copy.deepcopy(event),sequence=0,rootAgentId='A1')
+        terminal['event'].update(state=terminal_state,errorCode='OPERATION_TIMEOUT' if terminal_state=='failed' else None)
+        for higher_state in ('installing','completed','failed'):
+            higher=copy.deepcopy(terminal);higher['sequence']=4
+            higher['event'].update(statusEventId='event-U3-impossible-later',state=higher_state,errorCode='OPERATION_TIMEOUT' if higher_state=='failed' else None)
+            for a,b in ((terminal,higher),(higher,terminal)):
+                p.root_status(a,command);p.root_status(b,command)
+                receipts={};latest=p.server_ingest(a,command,receipts)
+                before=copy.deepcopy((receipts,latest))
+                rejected('TERMINAL_REGRESSION',lambda:p.server_ingest(b,command,receipts,latest))
+                rejected('TERMINAL_REGRESSION',lambda:p.server_ingest(b,command,receipts))
+                assert before==(receipts,latest)
+    # A lower active observation may legitimately arrive after a terminal gap.
+    active=copy.deepcopy(terminal);active['event'].update(state='installing',errorCode=None,statusEventId='event-U3-earlier-active')
+    terminal['sequence']=4
+    for a,b in ((active,terminal),(terminal,active)):
+        receipts={};latest=p.server_ingest(a,command,receipts)
+        latest=p.server_ingest(b,command,receipts,latest)
+        assert latest==terminal and len(receipts)==2
+        assert p.server_ingest(copy.deepcopy(a),command,receipts,latest)==terminal
+
+    # Root's real allocation path also rejects a second terminal observation;
+    # source and relay can deliver it, but cannot allocate past terminal sequence.
+    trace = copy.deepcopy(load('durable-transcript.json'))
+    next_event = copy.deepcopy(event)
+    next_event.update(statusEventId='event-U3-after-terminal',state='failed',errorCode='OPERATION_TIMEOUT')
+    next_event['hopContext']=p.expected_hop(command['routeSnapshot'],'U3','upstream',2)
+    trace['steps'] += [dict(action='observe',actor='A3',job='U3',event=copy.deepcopy(next_event)),
+                       dict(action='forwardEvent',actor='A3',job='U3',event=copy.deepcopy(next_event),idempotencyKey='event:U3:'+next_event['statusEventId']),
+                       dict(action='receiveEvent',actor='A2',job='U3',event=copy.deepcopy(next_event),authenticatedPeer=['agent','A3'])]
+    next_event['hopContext']=p.expected_hop(command['routeSnapshot'],'U3','upstream',1)
+    trace['steps'] += [dict(action='forwardEvent',actor='A2',job='U3',event=copy.deepcopy(next_event),idempotencyKey='event:U3:'+next_event['statusEventId']),
+                       dict(action='receiveEvent',actor='A1',job='U3',event=copy.deepcopy(next_event),authenticatedPeer=['agent','A2'],sequence=1)]
+    rejected('TERMINAL_REGRESSION',lambda:p.transcript(trace,{'U3':command,'R3':load('n-hop-rollback.json')}))

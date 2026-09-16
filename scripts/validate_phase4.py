@@ -118,6 +118,8 @@ def run(report_error):
     def out_of_order():
         c=load('n-hop-rollback.json'); late=load('root-status.json'); high=copy.deepcopy(late)
         high['sequence']=2; high['event']['statusEventId']='new-terminal-event'
+        late['event'].update(state='rolling_back',errorCode=None,statusEventId='earlier-active-event')
+        late['event']['physicalEvidence']=[]
         receipts={}; latest=p.server_ingest(high,c,receipts)
         assert p.server_ingest(late,c,receipts,latest)==high
         assert p.server_ingest(high,c,receipts,latest)==high and len(receipts)==2

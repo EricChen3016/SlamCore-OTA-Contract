@@ -302,8 +302,13 @@ Allocation order does not require HTTP arrival order. Server validates every acc
 atomically storing a receipt or changing latest state. A rejected request leaves
 receipt/latest state unchanged. It accepts exact replay and handles stale/gapped arrivals without rolling back
 latest sequence, and preserves terminal obligations. A conflicting existing
-sequence or reassigned event is rejected. Newer nonterminal observations cannot
-reopen terminal jobs. The validator distinguishes local allocation assertions from
+sequence or reassigned event is rejected. Check **all retained receipts in allocation
+sequence order**: no distinct higher-sequence observation may follow a terminal
+observation, including another failed/completed/rolled_back event. The same rule
+applies when the lower terminal arrives last; terminal state must not hide a previously
+retained higher observation. A lower-sequence active observation may arrive after a
+higher terminal and remains valid. Root checks its retained outbox before allocation;
+Server checks retained receipts before committing, even without a latest projection. The validator distinguishes local allocation assertions from
 Server ingest tests. Expired internal scheduling state never appears on the wire;
 late valid status is accepted and does not reclaim a released active device slot.
 
@@ -439,6 +444,16 @@ receipt binding, response echo, timestamps and hashes are checked on every proje
 Same event ID plus altered proof is a conflict. Relays preserve the full proof;
 Root alone allocates sequence; Server atomically validates then stores full status
 and history, retaining exact replay and rejecting conflicting sequence/event bodies.
+
+Both neverForwarded and firstSubmissionRejected are no-execution terminal proofs.
+For one U they must agree on one stage, originating Agent/obligation receipt and one
+stable statusEventId; neither a second origin nor a new ID creates a new terminal
+observation. An ancestor neverForwarded contradicts any deeper originating receipt,
+including another neverForwarded, because that deeper obligation requires forwarding.
+The two stages cannot coexist even at the same origin. Such proofs also cannot coexist
+with known Updater versions or physical progress. Exact replay of a single legitimate
+neverForwarded proof remains valid. Status/Root/Server and complete source-trace checks
+apply these exclusions across all retained observations, not only latest.
 
 A first-rejection proof is incompatible with already known child acceptance or U
 progress. The complete source trace MUST reject a child (or downstream descendant)
