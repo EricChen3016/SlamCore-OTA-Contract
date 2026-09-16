@@ -58,7 +58,7 @@ All references below are within this repository. `phase4-viaagent` means the nor
 
 ## Validation evidence and limits
 
-Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **25 positive schema mappings, 33 semantic checks, 96 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations, and 13 independent-review regression groups**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
+Run `python -m pip install -r requirements-dev.txt` then `python scripts/validate-contracts.py`. The suite reports exact counts dynamically. At delivery preparation: **28 positive schema mappings, 33 semantic checks, 96 targeted negative fixtures, 3 hash vectors, 12 OpenAPI operations, and 16 independent-review regression groups**, plus all existing legacy validation. JavaScript independently reproduced all three canonical route digests during implementation.
 
 The positive N-hop transcript contains **2 logical commands (U3/R3), 6 Agent durable obligations, 12 downstream command delivery attempts, and 8 upstream status relay attempts**. For activation and explicitRollback separately: invoked=1, activationStarted intent=1, completed=1, confirmedPhysicalStarts=1, unresolvedPhysicalStarts=0. Automatic recovery is a separate raw fixture for failed U-recovery. An intent-only crash has confirmedPhysicalStarts=0, unresolvedPhysicalStarts=1 and snapshotProven=false / operationLifetimeProven=false even when its journal page is complete. These numbers describe the fixtures, not a device.
 
@@ -216,4 +216,26 @@ existing `EXECUTION_TIME` diagnostic. Five additional review regression groups c
   confirmed source deduplication and unknown intent resolved by later confirmation.
 
 These tests implement the existing §8 time rule. They add no wire fields, HTTP error
-codes or capabilities and do not resolve the separately pending UUID casing decision.
+codes or capabilities and do not change UUID casing behavior. The later correlation correction is recorded below.
+
+
+## Attempt UUID correlation regression
+
+The [Issue #5 architecture decision](https://github.com/EricChen3016/SlamCore-OTA-Contract/issues/5#issuecomment-5696925708)
+retains valid lowercase, mixed-case and uppercase attempt UUIDs and requires exact
+error echo. `error-correlation-{lowercase,mixedcase,uppercase}.json` are valid error
+examples, checked against the same UUID range as the OpenAPI header. Three additional
+review groups check:
+
+- Each valid spelling remains byte-for-byte equal to its triggering header; a
+  schema-valid normalized spelling is rejected with `ERROR_CORRELATION_ECHO`.
+- Missing/malformed headers use a valid diagnostic UUID; non-UUID, non-string,
+  compact or whitespace-padded echoes fail schema validation.
+- Command, event and physical projection operationCorrelationId still reject valid
+  uppercase/mixed-case UUIDs and non-UUID values while accepting canonical lowercase.
+
+The OpenAPI validator pins the one shared CorrelationId header reference on all 12
+operations and the shared error-response schema for every declared error status.
+The old `9df0464` schema rejected the uppercase echo solely because of its lowercase
+pattern; removing that error-only restriction corrects the contradiction without
+changing legacy 2.0 schemas, operation identity, hash vectors or idempotency rules.

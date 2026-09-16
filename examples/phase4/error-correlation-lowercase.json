@@ -1,0 +1,9 @@
+{
+  "type": "urn:slamcore:error:validation-failed",
+  "title": "Validation Failed",
+  "status": 400,
+  "code": "VALIDATION_FAILED",
+  "detail": "Request body rejected; correlationId echoes the valid attempt header unchanged.",
+  "correlationId": "123e4567-e89b-42d3-a456-426614174000",
+  "retryable": false
+}

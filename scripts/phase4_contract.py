@@ -379,6 +379,13 @@ def evidence_counts(records):
     return counts
 
 
+def error_correlation(value, triggering_header):
+    """Check exact valid attempt UUID echo, or a schema-valid diagnostic UUID."""
+    shape('error-response', value)
+    if isinstance(triggering_header, str) and FormatChecker().conforms(triggering_header, 'uuid'):
+        require(value['correlationId'] == triggering_header, 'ERROR_CORRELATION_ECHO')
+
+
 def root_fingerprint(value):
     body = copy.deepcopy(value)
     body['event']['message'] = body['event']['message'].encode('utf-8').hex()

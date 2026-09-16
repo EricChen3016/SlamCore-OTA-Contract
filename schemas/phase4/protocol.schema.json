@@ -1475,8 +1475,7 @@
         },
         "correlationId": {
           "type": "string",
-          "format": "uuid",
-          "pattern": "^[0-9a-f-]{36}$"
+          "format": "uuid"
         },
         "retryable": {
           "type": "boolean"

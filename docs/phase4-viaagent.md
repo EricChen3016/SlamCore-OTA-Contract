@@ -123,9 +123,15 @@ Server assigns a lowercase UUID `operationCorrelationId` independently for each
 U and R. R's correlation differs from U; originalUpdateJobId links them. This
 identity is immutable across retry, restart, command, status and history.
 `X-Correlation-Id` remains a UUID for one HTTP hop/attempt. Attempts may choose a
-new value. ErrorResponse echoes the triggering valid header; if absent/malformed,
-the service generates a diagnostic UUID because no valid echo exists. Correlation
-never substitutes for a job ID, idempotency key or sequence.
+new value. Valid UUID lowercase, uppercase and mixed-case spellings are accepted.
+ErrorResponse.correlationId MUST echo the triggering valid header's exact string,
+without lowercasing or any other normalization. Its schema retains UUID format
+validation; arbitrary strings are not valid correlations. If the header is absent
+or malformed, the service generates a diagnostic UUID because no valid echo exists.
+This attempt-header rule does not change canonical lowercase operationCorrelationId,
+route/hop hashes or replay fingerprints. Correlation never substitutes for a job ID,
+idempotency key or sequence. The [Issue #5 architecture decision](https://github.com/EricChen3016/SlamCore-OTA-Contract/issues/5#issuecomment-5696925708)
+records this spelling/echo requirement.
 
 For `[A1,A2,A3]`, the immutable edge indexes are:
 

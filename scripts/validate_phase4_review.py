@@ -4,6 +4,7 @@ import json
 from itertools import permutations
 from pathlib import Path
 import phase4_contract as p
+import yaml
 
 FIXTURES = Path(__file__).resolve().parents[1] / 'examples/phase4'
 
@@ -108,7 +109,8 @@ def run(report_error):
               physical_confirmation_conflict, uncertain_rejection, fixed_snapshot_reads,
               relayed_origin_proof, adjacent_status_durability,
               cross_phase_time_counts, cross_phase_time_batch, cross_phase_time_prefix,
-              cross_phase_time_reverse, cross_phase_time_boundaries]
+              cross_phase_time_reverse, cross_phase_time_boundaries,
+              attempt_correlation_echo, attempt_correlation_invalid, operation_correlation_lowercase]
     for check in checks:
         try:
             check()
@@ -315,3 +317,56 @@ def cross_phase_time_boundaries():
     rehash(records[1])
     assert p.evidence_counts(records)['activation']['confirmedPhysicalStarts'] == 1
     assert p.evidence_counts(records[:2])['activation']['unresolvedPhysicalStarts'] == 1
+
+
+def attempt_correlation_echo():
+    document = yaml.safe_load((FIXTURES.parents[1] / 'openapi/slamcore-phase4-v1.yaml').read_text())
+    header = document['components']['parameters']['CorrelationId']['schema']
+    validator = p.Draft202012Validator(header, format_checker=p.FormatChecker())
+    cases = [('lowercase', '123e4567-e89b-42d3-a456-426614174000'),
+             ('mixedcase', '123E4567-e89B-42d3-A456-426614174000'),
+             ('uppercase', '123E4567-E89B-42D3-A456-426614174000')]
+    for label, value in cases:
+        validator.validate(value)
+        error = load('error-correlation-' + label + '.json')
+        assert error['correlationId'] == value
+        p.shape('error-response', error)
+    for label, value in cases:
+        error = load('error-correlation-' + label + '.json')
+        before = copy.deepcopy(error)
+        p.error_correlation(error, value)
+        assert error == before and error['correlationId'] == value
+        changed = copy.deepcopy(error)
+        changed['correlationId'] = value.upper() if label == 'lowercase' else value.lower()
+        p.shape('error-response', changed)  # Valid UUID, but not the triggering spelling.
+        rejected('ERROR_CORRELATION_ECHO', lambda: p.error_correlation(changed, value))
+        assert error == before
+
+
+def attempt_correlation_invalid():
+    document = yaml.safe_load((FIXTURES.parents[1] / 'openapi/slamcore-phase4-v1.yaml').read_text())
+    validator = p.Draft202012Validator(document['components']['parameters']['CorrelationId']['schema'],
+                                     format_checker=p.FormatChecker())
+    for invalid in (None, '', 'not-a-uuid', '123e4567e89b42d3a456426614174000',
+                    '123G4567-e89b-42d3-a456-426614174000',
+                    ' 123e4567-e89b-42d3-a456-426614174000 '):
+        assert not validator.is_valid(invalid)
+        diagnostic = load('error-400.json')
+        p.error_correlation(diagnostic, invalid)
+        assert diagnostic['correlationId'] == '30000000-0000-4000-8000-000000000003'
+        echoed_invalid = copy.deepcopy(diagnostic)
+        echoed_invalid['correlationId'] = invalid
+        rejected('SCHEMA', lambda: p.error_correlation(echoed_invalid, invalid))
+
+
+def operation_correlation_lowercase():
+    for schema, filename in [('routed-command', 'n-hop-update.json'),
+                             ('routed-status-event', 'routed-status-event.json'),
+                             ('projected-operation-evidence', 'projected-operation-evidence.json')]:
+        value = load(filename)
+        value['operationCorrelationId'] = '123e4567-e89b-42d3-a456-426614174000'
+        p.shape(schema, value)
+        for invalid in ('123E4567-E89B-42D3-A456-426614174000',
+                        '123E4567-e89B-42d3-A456-426614174000', 'not-a-uuid'):
+            value['operationCorrelationId'] = invalid
+            rejected('SCHEMA', lambda: p.shape(schema, value))

@@ -83,6 +83,7 @@ def run(report_error):
     mappings = {name+'.json': name for name in ['agent-observation','topology','route-snapshot','routed-status-event','root-status','history-page','pending-page','command-receipt','raw-operation-evidence','projected-operation-evidence','raw-evidence-page','evidence-page','event-page','error-response']}
     mappings.update({top+'-'+kind+'.json':'routed-command' for top in ['single-hop','branching','n-hop'] for kind in ['update','rollback']})
     mappings.update({'update-before-forward-failure.json':'routed-status-event','intent-only-evidence-page.json':'raw-evidence-page','never-forwarded-receipt.json':'command-receipt','leaf-before-forward-failure.json':'routed-status-event','never-forwarded-history.json':'history-page'})
+    mappings.update({'error-correlation-'+case+'.json':'error-response' for case in ('lowercase','mixedcase','uppercase')})
     for name, schema in mappings.items():
         test(name, lambda n=name,s=schema: p.shape(s, load(n)))
         counts['schema'] += 1
@@ -247,7 +248,7 @@ def run(report_error):
                     code='200' if method=='get' else '202'
                     assert schema_ref(operation['responses'][code])=='../schemas/phase4/'+response_schema+'.schema.json'
                 refs={x.get('$ref') for x in operation.get('parameters',[])}
-                assert '#/components/parameters/CorrelationId' in refs,(path,'correlation')
+                assert sum(x.get('$ref') == '#/components/parameters/CorrelationId' for x in operation.get('parameters', [])) == 1, (path, 'correlation')
                 assert '#/components/parameters/ContractVersion' in refs
                 assert '#/components/parameters/'+('EvidenceCapability' if owner=='Updater' else 'RelayCapability') in refs
                 if path.endswith('/evidence'):
@@ -266,6 +267,7 @@ def run(report_error):
                             p.shape(filename,json.loads(sample.read_text()))
                 assert {'400','401','403','404','409','422','503'}.issubset(operation['responses']),path
                 for code in ['400','401','403','404','409','422','503']:
+                    assert schema_ref(operation['responses'][code]) == '../schemas/phase4/error-response.schema.json', (path, code, 'error schema')
                     examples=operation['responses'][code]['content']['application/json']['examples']
                     for ex in examples.values():
                         payload=json.loads((source.parent/ex['externalValue']).read_text())

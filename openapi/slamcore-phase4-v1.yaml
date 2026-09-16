@@ -36,6 +36,12 @@ paths:
               examples:
                 canonical:
                   externalValue: ../examples/phase4/error-400.json
+                lowercase:
+                  externalValue: ../examples/phase4/error-correlation-lowercase.json
+                mixedcase:
+                  externalValue: ../examples/phase4/error-correlation-mixedcase.json
+                uppercase:
+                  externalValue: ../examples/phase4/error-correlation-uppercase.json
         '401':
           description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
           content:
@@ -1353,10 +1359,12 @@ components:
       name: X-Correlation-Id
       in: header
       required: true
-      description: Per HTTP hop/attempt UUID; ErrorResponse.correlationId MUST echo
-        this header. Never replaces operationCorrelationId. Missing/malformed header
-        returns VALIDATION_FAILED with generated diagnostic UUID when no valid echo
-        is possible.
+      description: Per HTTP hop/attempt UUID, accepting valid lowercase, uppercase,
+        and mixed-case spellings. ErrorResponse.correlationId MUST echo the exact
+        valid header string without lowercasing or any other normalization. Never
+        replaces the canonical lowercase operationCorrelationId. Missing/malformed
+        header returns VALIDATION_FAILED with a generated diagnostic UUID when no
+        valid echo is possible.
       schema:
         type: string
         format: uuid
