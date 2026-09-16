@@ -250,6 +250,7 @@ def status(value, obligation, authenticated_peer, local_peer, previous=None):
         projected_evidence(item, obligation)
     known = value['physicalEvidence'] + (previous['physicalEvidence'] if previous else [])
     evidence_facts([item['source'] for item in known])
+    rejection_facts([value] + ([previous] if previous else []))
     if previous and value['statusEventId'] == previous['statusEventId']:
         require(event_fingerprint(value) == event_fingerprint(previous), 'STATUS_EVENT_CONFLICT')
 
@@ -264,6 +265,22 @@ def encoded_rejection_proof(proof):
 
 def rejection_proof_hash(proof):
     return digest(encoded_rejection_proof(proof))
+
+
+def rejection_facts(events):
+    """A first pre-acceptance failure cannot coexist with known U progress."""
+    grouped = defaultdict(list)
+    for event in events:
+        grouped[event['serverCommandJobId']].append(event)
+    for observations in grouped.values():
+        for first in observations:
+            failure = first.get('failureEvidence', {})
+            if failure.get('stage') != 'firstSubmissionRejected':
+                continue
+            require(not any(e['versionEvidence']['availability'] == 'available' or e['physicalEvidence'] for e in observations), 'REJECTION_KNOWN_PROGRESS')
+            agents = first['routeSnapshot']['orderedAgentIds']
+            descendants = agents[agents.index(failure['agentId']) + 1:]
+            require(not any(e.get('failureEvidence', {}).get('agentId') in descendants for e in observations), 'REJECTION_KNOWN_PROGRESS')
 
 
 def first_rejection(value, obligation):
@@ -298,6 +315,7 @@ def root_status(value, obligation, previous=None):
     require(value['rootAgentId'] == root and value['event']['hopContext']['hopIndex'] == 0, 'ROOT_SEQUENCE_OWNER')
     status(value['event'], obligation, ('agent', root), ('server', obligation['routeSnapshot']['serverId']))
     if previous:
+        rejection_facts([previous['event'], value['event']])
         require(previous['event']['serverCommandJobId'] == value['event']['serverCommandJobId'], 'SEQUENCE_JOB_SCOPE')
         require(value['sequence'] >= previous['sequence'], 'STALE_SEQUENCE')
         if value['sequence'] == previous['sequence']:
@@ -319,6 +337,7 @@ def server_ingest(value, obligation, receipts, latest=None):
     for prior in receipts.values():
         if prior['event']['serverCommandJobId'] == value['event']['serverCommandJobId'] and prior['event']['statusEventId'] == value['event']['statusEventId']:
             require(prior == value, 'EVENT_SEQUENCE_REASSIGNMENT')
+    rejection_facts([envelope['event'] for envelope in [*receipts.values(), value]])
     candidate = latest
     if latest is None or value['sequence'] > latest['sequence']:
         if latest and latest['event']['state'] in ('completed','failed','rolled_back'):
@@ -452,6 +471,7 @@ def transcript(value, commands):
     rollback_by_u = {}
     submission_counts, terminal_verified = defaultdict(int), set()
     acceptance_bodies, attempt_journals = {}, {}
+    rejected_downstream = set()
 
     def root_commit(actor, job, event, sequence):
         c = commands[job]
@@ -505,6 +525,7 @@ def transcript(value, commands):
         route_agents = c['routeSnapshot']['orderedAgentIds']
         require(actor in route_agents, 'TRACE_ACTOR')
         if action == 'commit':
+            require(key not in rejected_downstream, 'REJECTION_DOWNSTREAM_ACCEPTED')
             require(item['fingerprint'] == command_fingerprint(c) and item['routeSnapshotHash'] == c['routeSnapshot']['routeSnapshotHash'], 'DURABLE_FINGERPRINT')
             require(key not in durable or durable[key] == item['fingerprint'], 'IDEMPOTENCY_CONFLICT')
             if c['commandType'] == 'rollback':
@@ -585,6 +606,9 @@ def transcript(value, commands):
             records = attempt_journals[key]['records']
             require(len(records) == 1, 'REJECTION_JOURNAL')
             require(route_agents.index(actor) + 1 < len(route_agents), 'REJECTION_CHILD')
+            require(not any(a == actor and j == job for a, j, _ in events), 'REJECTION_KNOWN_PROGRESS')
+            descendants = {(agent, job) for agent in route_agents[route_agents.index(actor) + 1:]}
+            require(not descendants.intersection(durable), 'REJECTION_DOWNSTREAM_ACCEPTED')
             child = route_agents[route_agents.index(actor) + 1]
             require(item.get('authenticatedPeer') == ['agent', child], 'REJECTION_CHILD')
             record = item['record']
@@ -592,6 +616,7 @@ def transcript(value, commands):
             error_correlation(item['response'], records[0]['correlationId'])
             require((item['response']['code'], item['response']['status']) in {('STALE_ROUTE',409),('ROUTE_MISMATCH',409),('INVALID_ADJACENCY',409),('CAPABILITY_MISMATCH',422)}, 'REJECTION_RESPONSE')
             records.append(copy.deepcopy(record))
+            rejected_downstream.update(descendants)
             terminal_verified.add(key)
         elif action == 'terminalize':
             require(key in durable, 'TERMINAL_WITHOUT_OBLIGATION')
@@ -606,6 +631,7 @@ def transcript(value, commands):
             require(event['serverCommandJobId'] == job, 'STATUS_IDENTITY')
             event_key = (actor, job, event_id)
             source_key = (job, event_id)
+            rejection_facts([event] + [e for (a, j, _), e in events.items() if a == actor and j == job])
             fp = event_fingerprint(event)
             if action == 'observe':
                 origin = event.get('failureEvidence', {}).get('agentId', route_agents[-1])

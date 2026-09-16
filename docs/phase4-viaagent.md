@@ -434,6 +434,18 @@ Same event ID plus altered proof is a conflict. Relays preserve the full proof;
 Root alone allocates sequence; Server atomically validates then stores full status
 and history, retaining exact replay and rejecting conflicting sequence/event bodies.
 
+A first-rejection proof is incompatible with already known child acceptance or U
+progress. The complete source trace MUST reject a child (or downstream descendant)
+U obligation before, during or after that claimed rejection, and the parent MUST
+reject it if a child status has already arrived. Physical/status source actions
+cannot erase a durable acceptance fact. Server checks **all retained receipts for
+that U**, not only latest: available Updater versions, any physical evidence, or a
+downstream-origin failure receipt proving child acceptance and
+firstSubmissionRejected cannot coexist, regardless of stale/gap/late arrival order.
+Validate this exclusion before receipt/latest mutation; rejecting the new input
+preserves every retained receipt and the current projection. It also applies to
+local status/Root allocation and relay observations. Exact replay remains valid.
+
 A wire claim of journalComplete is **not** proof of local storage truth. The origin
 must validate its actual write-ahead journal, transport-authenticated response and
 unchanged original acceptance. The trace validator independently compares those

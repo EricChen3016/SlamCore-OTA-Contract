@@ -43,7 +43,7 @@ def propagate():
 
 
 def run(report_error):
-    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest]
+    checks = [propagate, durable_propagation, trace_negatives, immutable_proof_and_atomic_ingest, child_acceptance_contradiction, retained_progress_contradiction]
     for check in checks:
         try:
             check()
@@ -226,3 +226,83 @@ def immutable_proof_and_atomic_ingest():
     unicode_steps, _, unicode_body = traced_rejection(event)
     p.transcript(dict(steps=unicode_steps),{'U3':command})
     assert unicode_body['event']['failureEvidence'] == failure
+
+
+def child_acceptance_contradiction():
+    steps, command, _ = traced_rejection()
+    child_commit = dict(action='commit', actor='A3', job='U3',
+                        fingerprint=p.command_fingerprint(command),
+                        routeSnapshotHash=command['routeSnapshot']['routeSnapshotHash'])
+    # Child acceptance exists before parent transport, during that transport, or
+    # appears after the purported pre-acceptance rejection. None fits this proof.
+    for index in (4, 5, 6):
+        changed = copy.deepcopy(steps)
+        changed.insert(index, copy.deepcopy(child_commit))
+        rejected('REJECTION_DOWNSTREAM_ACCEPTED', lambda:p.transcript(dict(steps=changed), {'U3':command}))
+    # Normal idempotent dispatch to an existing child and response-loss recovery
+    # remain legal. They cannot be reclassified as first pre-acceptance rejection.
+    for use_query in (False, True):
+        recovery = copy.deepcopy(steps[:4]) + [copy.deepcopy(child_commit),copy.deepcopy(steps[4])]
+        if use_query:
+            recovery += [dict(action='responseLost',actor='A2',job='U3'),
+                         dict(action='query',actor='A2',job='U3',result='accepted',receiptFingerprint=p.command_fingerprint(command))]
+        else:
+            recovery.append(dict(action='downstreamAccepted',actor='A2',job='U3',fingerprint=p.command_fingerprint(command)))
+        assert p.transcript(dict(steps=recovery), {'U3':command})['durableObligations'] == 3
+    # Independently valid child status/physical facts contradict the parent proof.
+    child_status = [copy.deepcopy(child_commit),dict(action='observe',actor='A3',job='U3',event=load('leaf-before-forward-failure.json'))]
+    existing = load('durable-transcript.json')['steps']
+    child_physical = [copy.deepcopy(child_commit),copy.deepcopy(existing[20]),
+                      dict(action='downstreamAccepted',actor='A3',job='U3',fingerprint=p.command_fingerprint(command))]
+    child_physical += [copy.deepcopy(x) for x in existing if x['action']=='physical' and x['job']=='U3']
+    for source in (child_status, child_physical):
+        prefix = copy.deepcopy(steps[:5]) + source
+        p.transcript(dict(steps=prefix), {'U3':command})
+        rejected('REJECTION_DOWNSTREAM_ACCEPTED',lambda:p.transcript(dict(steps=prefix+copy.deepcopy(steps[5:])), {'U3':command}))
+    visible = copy.deepcopy(steps[:5]) + child_physical + [copy.deepcopy(existing[i]) for i in (31,33,34)]
+    p.transcript(dict(steps=visible), {'U3':command})
+    rejected('REJECTION_KNOWN_PROGRESS',lambda:p.transcript(dict(steps=visible+copy.deepcopy(steps[5:])), {'U3':command}))
+
+
+def retained_progress_contradiction():
+    command = load('n-hop-update.json')
+    proof = load('first-submission-rejected-root-status.json')
+    known = next(x['event'] for x in load('durable-transcript.json')['steps'] if x['action']=='observe' and x['job']=='U3')
+    known['hopContext'] = p.expected_hop(command['routeSnapshot'],'U3','upstream',0)
+    for state in ('installing','failed','completed'):
+        for physical in (False, True):
+            event = copy.deepcopy(known)
+            event.update(state=state,errorCode='OPERATION_TIMEOUT' if state=='failed' else None)
+            if not physical: event['physicalEvidence'] = []
+            for first_is_proof in (False, True):
+                for second_sequence in (0, 3, 7):
+                    progress = dict(event=copy.deepcopy(event),sequence=3,rootAgentId='A1')
+                    first, second = (copy.deepcopy(proof),progress) if first_is_proof else (progress,copy.deepcopy(proof))
+                    first['sequence'] = 2
+                    second['sequence'] = second_sequence
+                    p.root_status(first,command);p.root_status(second,command)
+                    receipts = {}
+                    latest = p.server_ingest(first,command,receipts)
+                    before = copy.deepcopy((receipts,latest))
+                    rejected('REJECTION_KNOWN_PROGRESS',lambda:p.server_ingest(second,command,receipts,latest))
+                    assert (receipts,latest) == before
+                    # Even without a latest projection, durable older receipts rule.
+                    rejected('REJECTION_KNOWN_PROGRESS',lambda:p.server_ingest(second,command,receipts))
+                    assert (receipts,latest) == before
+    # A downstream neverForwarded receipt still proves that child accepted U,
+    # despite null versions and empty physical evidence. It contradicts this proof.
+    child = load('leaf-before-forward-failure.json')
+    child['hopContext'] = p.expected_hop(command['routeSnapshot'],'U3','upstream',0)
+    child_body = dict(event=child,sequence=0,rootAgentId='A1')
+    for first, second in ((child_body,proof),(proof,child_body)):
+        first, second = copy.deepcopy(first), copy.deepcopy(second)
+        second['sequence'] = 3
+        receipts = {};latest = p.server_ingest(first,command,receipts)
+        before = copy.deepcopy((receipts,latest))
+        rejected('REJECTION_KNOWN_PROGRESS',lambda:p.server_ingest(second,command,receipts,latest))
+        assert (receipts,latest) == before
+    # The existing local-allocation and status validators also reject this pairing.
+    progress = dict(event=known,sequence=0,rootAgentId='A1')
+    next_proof = copy.deepcopy(proof);next_proof['sequence']=1
+    rejected('REJECTION_KNOWN_PROGRESS',lambda:p.root_status(next_proof,command,progress))
+    rejected('REJECTION_KNOWN_PROGRESS',lambda:p.status(next_proof['event'],command,('agent','A1'),('server','server-1'),known))
