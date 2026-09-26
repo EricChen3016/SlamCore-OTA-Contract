@@ -23,8 +23,9 @@ def fail(path: Path, reason: str) -> None:
 
 def load_json(path: Path):
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        from phase4_contract import strict_json
+        return strict_json(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
         fail(path, f"invalid JSON: {exc}")
         return None
 
@@ -854,8 +855,8 @@ def main() -> int:
     version = version_path.read_text(encoding="utf-8").strip()
     if not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version):
         fail(version_path, "must contain a SemVer core version")
-    elif version != "2.1.1":
-        fail(version_path, "rollback version-evidence fix release must be 2.1.1")
+    elif version != "2.2.0":
+        fail(version_path, "Phase 4 additive release must be 2.2.0")
 
     for relative, document in openapi_documents.items():
         if document.get("info", {}).get("version") != version:
@@ -878,6 +879,9 @@ def main() -> int:
     ]:
         if path.exists():
             fail(path, "legacy Contract 1.x artifact must remain removed")
+
+    from validate_phase4 import run as validate_phase4
+    validate_phase4(ERRORS.append)
 
     if ERRORS:
         print("Contract validation failed:", file=sys.stderr)

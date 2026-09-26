@@ -1,0 +1,5 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://slamcore.local/schemas/phase4/agent-observation.schema.json",
+  "$ref": "protocol.schema.json#/$defs/observation"
+}

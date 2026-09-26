@@ -1,0 +1,91 @@
+{
+  "contractVersion": "2.0",
+  "commandType": "update",
+  "serverCommandJobId": "U3",
+  "originalUpdateJobId": null,
+  "updaterJobId": "U3",
+  "operationCorrelationId": "10000000-0000-4000-8000-000000000003",
+  "targetDeviceId": "D3",
+  "routeSnapshot": {
+    "routeId": "route-D3",
+    "routeVersion": 1,
+    "topologyVersion": 1,
+    "serverId": "server-1",
+    "targetDeviceId": "D3",
+    "targetUpdaterId": "P3",
+    "orderedAgentIds": [
+      "A1",
+      "A2",
+      "A3"
+    ],
+    "capabilitySnapshot": {
+      "agents": [
+        {
+          "agentId": "A1",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A1"
+        },
+        {
+          "agentId": "A2",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A2"
+        },
+        {
+          "agentId": "A3",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A3"
+        }
+      ],
+      "updater": {
+        "updaterId": "P3",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "physical-operation-evidence-v1"
+        ],
+        "evidenceId": "capability-P3"
+      },
+      "device": {
+        "deviceId": "D3",
+        "capabilities": [
+          "explicit-rollback-v1"
+        ],
+        "registrationEventId": "device-registration-D3"
+      }
+    },
+    "createdAtUtc": "2026-09-15T00:00:00Z",
+    "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+  },
+  "requiredCapability": "hierarchical-relay-v1",
+  "createdAtUtc": "2026-09-15T00:00:01Z",
+  "expiresAtUtc": "2026-09-15T00:10:00Z",
+  "payload": {
+    "contractVersion": "2.0",
+    "jobId": "U3",
+    "targetVersion": "1.2.0",
+    "packageUrl": "https://packages.example.test/slamcore-1.2.0.tar.gz",
+    "packageSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "platform": "linux-arm64"
+  },
+  "hopContext": {
+    "hopIndex": 0,
+    "direction": "downstream",
+    "senderKind": "server",
+    "senderId": "server-1",
+    "receiverKind": "agent",
+    "receiverId": "A1",
+    "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959",
+    "hopId": "4ab1e6e8477ddeec4369e8cab43ed67fccc5c5a038ea3dee22044c8f4cb418c5"
+  }
+}

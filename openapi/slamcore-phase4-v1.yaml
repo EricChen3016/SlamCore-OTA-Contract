@@ -1,0 +1,1448 @@
+openapi: 3.1.0
+info:
+  title: SlamCore Phase 4 ViaAgent additive interfaces
+  version: 2.2.0
+  description: 'Normative rules: ../docs/phase4-viaagent.md. Runtime contractVersion
+    remains 2.0. hierarchical-relay-v1 is required on every Agent; physical-operation-evidence-v1
+    on Updater. Existing Contract 2.0 endpoints and owners are unchanged. Authentication
+    is supplied by deployment trust configuration, never a claimed JSON identity.'
+paths:
+  /agents/observations:
+    post:
+      operationId: ServerRegisterAgentObservation
+      summary: register agent observation
+      description: Key observation:<originAgentId>:<observationEventId>; fingerprint
+        is complete original observation. Registration is Agent-scoped and supports
+        zero Devices. Observation does not change authority without Server acceptance.
+        See docs/phase4-viaagent.md section 2.
+      x-owner: Server
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://server.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '204':
+          description: Durably recorded or exact replay; no response body.
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+                lowercase:
+                  externalValue: ../examples/phase4/error-correlation-lowercase.json
+                mixedcase:
+                  externalValue: ../examples/phase4/error-correlation-mixedcase.json
+                uppercase:
+                  externalValue: ../examples/phase4/error-correlation-uppercase.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/phase4/agent-observation.schema.json
+            examples:
+              canonical:
+                externalValue: ../examples/phase4/agent-observation.json
+  /topology:
+    get:
+      operationId: ServerReadAuthoritativeTopology
+      summary: read authoritative topology
+      description: Authorized control-plane read of the current rooted forest revision;
+        never substitutes for a retained accepted job snapshot.
+      x-owner: Server
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://server.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/topology.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/topology.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+  /agents/{agentId}/commands:
+    get:
+      operationId: ServerReadPendingRoutedCommands
+      summary: read pending routed commands
+      description: Authenticated snapshot Root Agent only. Server filters exact current
+        capabilities and expiry, retaining stable command identity. Stable cursor
+        order is (createdAtUtc, serverCommandJobId); each page is an immutable read
+        watermark. No acquisition acknowledgement is inferred from GET.
+      x-owner: Server
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://server.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - name: agentId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/pending-page.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/pending-page.json
+        '204':
+          description: Known Agent with no eligible unexpired command. No mutation
+            or identity allocation.
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+  /commands:
+    post:
+      operationId: AgentAcceptRoutedCommand
+      summary: accept routed command
+      description: Authenticated Server at Root, or immediate parent Agent. Key command:<serverCommandJobId>,
+        scope receiving Agent. Complete command excluding hopContext is the immutable
+        job fingerprint; hopContext is independently fixed and authenticated. Persist
+        before forwarding AND before response. The body is never submitted to Updater.
+      x-owner: Agent
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://agent.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '202':
+          description: Durably accepted before acknowledgment; pending downstream
+            obligation retained. This original acceptance body is retained byte-for-byte
+            for POST replay; a later terminal proof snapshot does not overwrite it.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/command-receipt.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/command-receipt.json
+        '200':
+          description: 'Same key and semantic fingerprint: original durable acceptance
+            replay.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/command-receipt.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/command-receipt.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request. A first matching STALE_ROUTE, ROUTE_MISMATCH or
+            INVALID_ADJACENCY rejection may be durably captured by the parent as
+            firstSubmissionRejected proof; no child command receipt is invented.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade. A first matching CAPABILITY_MISMATCH rejection may be
+            captured in parent firstSubmissionRejected proof. See normative section 7.1.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/phase4/routed-command.schema.json
+            examples:
+              canonical:
+                externalValue: ../examples/phase4/n-hop-update.json
+  /commands/{serverCommandJobId}:
+    get:
+      operationId: AgentQueryCommandReceipt
+      summary: query command receipt
+      description: Authorized immediate upstream peer queries durable original acceptance
+        plus current obligationState. receiptId identifies the obligation; this read
+        snapshot may advance state without overwriting the original POST acceptance.
+        A firstSubmissionRejected event freezes its own terminal receipt snapshot.
+        Stored command is immutable; GET 404 does not
+        prove absence of downstream acceptance. Query then exact replay on uncertain
+        outcome.
+      x-owner: Agent
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://agent.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - name: serverCommandJobId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/command-receipt.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/command-receipt.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+  /commands/{serverCommandJobId}/events:
+    post:
+      operationId: AgentRelayStatusEvent
+      summary: relay status event
+      description: Only immediate child Agent on retained snapshot. Key event:<serverCommandJobId>:<statusEventId>.
+        Fingerprint excludes hopContext only, preserving every semantic observation
+        byte. Persist and dedupe before upstream forward and acknowledgment. No Server
+        sequence allocated by relay. A notObserved failure carries the complete immutable
+        original never-forwarded originReceipt and originReceiptHash inside failureEvidence;
+        every relay validates and retains the child-authenticated proof unchanged.
+        No direct origin bypass or out-of-band proof channel.
+      x-owner: Agent
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://agent.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: serverCommandJobId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      responses:
+        '204':
+          description: Durably recorded or exact replay; no response body.
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/phase4/routed-status-event.schema.json
+            examples:
+              canonical:
+                externalValue: ../examples/phase4/routed-status-event.json
+              firstSubmissionRejected:
+                externalValue: ../examples/phase4/first-submission-rejected-event.json
+    get:
+      operationId: AgentQueryDurableStatusEvents
+      summary: query durable status events
+      description: Read by authorized immediate upstream peer; event bodies retain
+        original immutable observation and original incoming hopContext. On forwarding,
+        generate the deterministic next upstream hop envelope only. Stable order (observedAtUtc,statusEventId)
+        with watermark cursor. A notObserved failure carries the complete immutable
+        original never-forwarded originReceipt and originReceiptHash inside failureEvidence;
+        every relay validates and retains the child-authenticated proof unchanged.
+        No direct origin bypass or out-of-band proof channel.
+      x-owner: Agent
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://agent.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - name: serverCommandJobId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/event-page.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/event-page.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+  /jobs/{serverCommandJobId}/status:
+    post:
+      operationId: ServerIngestRootStatus
+      summary: ingest root status
+      description: Authenticated snapshot Root only. Key status:<serverCommandJobId>:<sequence>.
+        Body job, path and key MUST match. Fingerprint is complete root-status body.
+        Allocation is contiguous at Root; network arrival may be stale, duplicated
+        or gapped. Persist receipt, preserve monotonic latest projection and terminal
+        obligations. ErrorResponse correlationId echoes this request X-Correlation-Id.
+        A notObserved failure carries the complete immutable original never-forwarded
+        originReceipt and originReceiptHash inside failureEvidence; every relay validates
+        and retains the child-authenticated proof unchanged. No direct origin bypass
+        or out-of-band proof channel.
+      x-owner: Server
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://server.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      - name: serverCommandJobId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      responses:
+        '204':
+          description: Durably recorded or exact replay; no response body.
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/phase4/root-status.schema.json
+            examples:
+              canonical:
+                externalValue: ../examples/phase4/root-status.json
+              firstSubmissionRejected:
+                externalValue: ../examples/phase4/first-submission-rejected-root-status.json
+  /devices/{targetDeviceId}/history:
+    get:
+      operationId: ServerReadRoutedHistory
+      summary: read routed history
+      description: Dedicated additive history representation preserves U and R separately,
+        immutable route/correlation, root sequence and unavailable rollback version
+        evidence. Latest authoritative status per command ordered descending (command.createdAtUtc,
+        serverCommandJobId), stable keyset cursor fixes watermark. unavailable never
+        changes device version or original U. Legacy /api/v1/devices/{deviceId}/history
+        remains UpdateStatus[]. A notObserved failure carries the complete immutable
+        original never-forwarded originReceipt and originReceiptHash inside failureEvidence;
+        every relay validates and retains the child-authenticated proof unchanged.
+        No direct origin bypass or out-of-band proof channel.
+      x-owner: Server
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://server.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - name: targetDeviceId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/history-page.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/history-page.json
+                firstSubmissionRejected:
+                  externalValue: ../examples/phase4/first-submission-rejected-history.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+  /commands/{serverCommandJobId}/evidence:
+    get:
+      operationId: AgentReadProjectedOperationEvidence
+      summary: read projected operation evidence
+      description: Authorized immediate upstream peer reads durable leaf projection
+        of raw U journal evidence. Relays retain source unchanged, never renumber.
+        Includes completion/watermark fields; missing/incomplete capture means unproven.
+        Continuation requires the explicit journalId + journalHighWatermark pair returned
+        by the first page, preserving simultaneous independent reads. proofScope=journalSnapshot;
+        operationLifetimeProven=false even for complete retained pagination. External
+        lifetime coverage is a separate HIL obligation.
+      x-owner: Agent
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://agent.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - name: serverCommandJobId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      - name: afterJournalSequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      - $ref: '#/components/parameters/EvidenceJournalId'
+      - $ref: '#/components/parameters/EvidenceHighWatermark'
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/evidence-page.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/evidence-page.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: 'IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request. Evidence snapshot binding mismatch:
+            EVIDENCE_SNAPSHOT_MISMATCH.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+  /jobs/{serverCommandJobId}/evidence:
+    get:
+      operationId: ServerReadHistoricalOperationEvidence
+      summary: read historical operation evidence
+      description: Authorized control-plane reads retained leaf/root projection. Count
+        unique updater/ U /kind/ordinal/phase only after complete journal coverage.
+        Response is evidence for an exact immutable command and route, not a final-version
+        estimate. Continuation requires the explicit journalId + journalHighWatermark
+        pair returned by the first page, preserving simultaneous independent reads.
+        proofScope=journalSnapshot; operationLifetimeProven=false even for complete
+        retained pagination. External lifetime coverage is a separate HIL obligation.
+      x-owner: Server
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://server.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/RelayCapability'
+      - name: serverCommandJobId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      - name: afterJournalSequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      - $ref: '#/components/parameters/EvidenceJournalId'
+      - $ref: '#/components/parameters/EvidenceHighWatermark'
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/evidence-page.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/evidence-page.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: 'IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request. Evidence snapshot binding mismatch:
+            EVIDENCE_SNAPSHOT_MISMATCH.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+  /updates/{updaterJobId}/evidence:
+    get:
+      operationId: UpdaterReadRawOperationEvidence
+      summary: read raw operation evidence
+      description: Authorized Leaf Agent only. Additive read interface, exact physical-operation-evidence-v1
+        capability required. Path uses U for both update and rollback; raw records
+        never contain R, route or operationCorrelationId. Return all U operation kinds.
+        Source journal immutable; pagination watermark fixed, complete true only once
+        all matching retained records through watermark have been returned. Continuation
+        requires the explicit journalId + journalHighWatermark pair returned by the
+        first page, preserving simultaneous independent reads. proofScope=journalSnapshot;
+        operationLifetimeProven=false even for complete retained pagination. External
+        lifetime coverage is a separate HIL obligation.
+      x-owner: Updater
+      x-authenticated-peer-required: true
+      servers:
+      - url: https://updater.example.test/api/v1/phase4
+      parameters:
+      - $ref: '#/components/parameters/CorrelationId'
+      - $ref: '#/components/parameters/ContractVersion'
+      - $ref: '#/components/parameters/EvidenceCapability'
+      - name: updaterJobId
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      - name: afterJournalSequence
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 0
+          default: 0
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 50
+      - $ref: '#/components/parameters/EvidenceJournalId'
+      - $ref: '#/components/parameters/EvidenceHighWatermark'
+      responses:
+        '200':
+          description: Durable read snapshot. Absence of evidence is unproven, never
+            a physical exactly-once claim.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/raw-evidence-page.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/raw-evidence-page.json
+        '400':
+          description: 'Malformed request or missing required header: VALIDATION_FAILED.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-400.json
+        '401':
+          description: 'Unauthenticated caller: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-401.json
+        '403':
+          description: 'Authenticated caller not authorized for adjacent peer, target,
+            or read scope: UNAUTHORIZED_PEER.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-403.json
+        '404':
+          description: 'Unknown resource: RESOURCE_NOT_FOUND. Query 404 alone does
+            not terminalize an uncertain obligation.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-404.json
+        '409':
+          description: 'IDEMPOTENCY_CONFLICT, INVALID_TOPOLOGY, STALE_ROUTE, ROUTE_MISMATCH,
+            INVALID_ADJACENCY or UPDATE_ALREADY_RUNNING; no durable acceptance/downstream
+            mutation of the rejected request. Evidence snapshot binding mismatch:
+            EVIDENCE_SNAPSHOT_MISMATCH.'
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-409.json
+        '422':
+          description: CAPABILITY_MISMATCH or INCOMPATIBLE_RELEASE; never silently
+            downgrade.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-422.json
+        '503':
+          description: DEPENDENCY_UNAVAILABLE; retry same operation after query/reconciliation.
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/phase4/error-response.schema.json
+              examples:
+                canonical:
+                  externalValue: ../examples/phase4/error-503.json
+components:
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: true
+      description: Per HTTP hop/attempt UUID, accepting valid lowercase, uppercase,
+        and mixed-case spellings in the canonical 8-4-4-4-12 UUID structure.
+        ErrorResponse.correlationId MUST echo the exact
+        valid header string without lowercasing or any other normalization. Never
+        replaces the canonical lowercase operationCorrelationId. Missing/malformed
+        header returns VALIDATION_FAILED with a generated diagnostic UUID when no
+        valid echo is possible.
+      schema:
+        type: string
+        format: uuid
+        pattern: '^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$'
+        maxLength: 36
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Endpoint-specific exact scope/key in operation description and
+        normative replay table. Retries reuse key and semantic payload.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 300
+    ContractVersion:
+      name: X-SlamCore-Contract-Version
+      in: header
+      required: true
+      schema:
+        type: string
+        const: '2.0'
+      description: 'Exact negotiated value required; unknown version or capability
+        returns 422 with no mutation or route-critical delivery. Header assertion
+        alone is not proof: receiver checks authenticated persisted capability evidence.'
+    RelayCapability:
+      name: X-SlamCore-Capability
+      in: header
+      required: true
+      schema:
+        type: string
+        const: hierarchical-relay-v1
+      description: 'Exact negotiated value required; unknown version or capability
+        returns 422 with no mutation or route-critical delivery. Header assertion
+        alone is not proof: receiver checks authenticated persisted capability evidence.'
+    EvidenceCapability:
+      name: X-SlamCore-Capability
+      in: header
+      required: true
+      schema:
+        type: string
+        const: physical-operation-evidence-v1
+      description: 'Exact negotiated value required; unknown version or capability
+        returns 422 with no mutation or route-critical delivery. Header assertion
+        alone is not proof: receiver checks authenticated persisted capability evidence.'
+    EvidenceJournalId:
+      name: journalId
+      in: query
+      required: false
+      schema:
+        type: string
+        pattern: ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$
+      description: Send journalId and journalHighWatermark together on every continuation
+        or exact snapshot replay. Both may be absent only for a fresh first page with
+        afterJournalSequence=0. Never silently select a new live snapshot. Mismatch
+        or unavailable binding returns 409 EVIDENCE_SNAPSHOT_MISMATCH.
+    EvidenceHighWatermark:
+      name: journalHighWatermark
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+      description: Send journalId and journalHighWatermark together on every continuation
+        or exact snapshot replay. Both may be absent only for a fresh first page with
+        afterJournalSequence=0. Never silently select a new live snapshot. Mismatch
+        or unavailable binding returns 409 EVIDENCE_SNAPSHOT_MISMATCH.

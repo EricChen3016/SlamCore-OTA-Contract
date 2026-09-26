@@ -226,3 +226,7 @@ Updater 完成 download 後先計算整個 ZIP SHA-256。Mismatch 時不得解�
 ## 12. 後續範圍
 
 Authentication、HTTPS、certificate、package signature、rollout waves、pause/cancel、message queue 仍不在 2.0。產品實作只能在本 contract 合併後各自升級；本 repository 不包含任何 runtime implementation。
+
+## 12. 2.2.0 Phase 4 ViaAgent additive interfaces
+
+See [Phase 4 normative contract](phase4-viaagent.md), [acceptance mapping](phase4-acceptance.md) and [compatibility matrix](compatibility-matrix.md#phase-4-supported-and-fail-closed-combinations). New topology, routed command/status/history and physical evidence interfaces are gated by exact capabilities. Runtime 2.0 and every legacy rule above remain unchanged; routed Root allocation is distinct from HTTP arrival order. No ROS/package/Updater lifecycle boundary changes.

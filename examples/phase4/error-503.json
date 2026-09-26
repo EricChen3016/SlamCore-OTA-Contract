@@ -1,0 +1,9 @@
+{
+  "type": "urn:slamcore:error:dependency-unavailable",
+  "title": "Dependency Unavailable",
+  "status": 503,
+  "code": "DEPENDENCY_UNAVAILABLE",
+  "detail": "Request rejected; see normative error semantics.",
+  "correlationId": "30000000-0000-4000-8000-000000000003",
+  "retryable": true
+}

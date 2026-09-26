@@ -1,0 +1,9 @@
+{
+  "type": "urn:slamcore:error:invalid-adjacency",
+  "title": "Invalid adjacent peer",
+  "status": 409,
+  "code": "INVALID_ADJACENCY",
+  "detail": "Caller does not match the immutable route.",
+  "correlationId": "30000000-0000-4000-8000-000000000003",
+  "retryable": false
+}

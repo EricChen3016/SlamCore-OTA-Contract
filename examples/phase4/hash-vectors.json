@@ -1,0 +1,170 @@
+[
+  {
+    "name": "single-hop",
+    "route": {
+      "routeId": "route-D1",
+      "routeVersion": 1,
+      "topologyVersion": 1,
+      "serverId": "server-1",
+      "targetDeviceId": "D1",
+      "targetUpdaterId": "P1",
+      "orderedAgentIds": [
+        "A1"
+      ],
+      "capabilitySnapshot": {
+        "agents": [
+          {
+            "agentId": "A1",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A1"
+          }
+        ],
+        "updater": {
+          "updaterId": "P1",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "physical-operation-evidence-v1"
+          ],
+          "evidenceId": "capability-P1"
+        },
+        "device": {
+          "deviceId": "D1",
+          "capabilities": [
+            "explicit-rollback-v1"
+          ],
+          "registrationEventId": "device-registration-D1"
+        }
+      },
+      "createdAtUtc": "2026-09-15T00:00:00Z",
+      "routeSnapshotHash": "ab0eca394d8073ae142a732fc290690463d21879eaf134375497c5fa30fac833"
+    },
+    "canonicalUtf8": "{\"capabilitySnapshot\":{\"agents\":[{\"agentId\":\"A1\",\"capabilities\":[\"explicit-rollback-v1\",\"hierarchical-relay-v1\"],\"contractVersion\":\"2.0\",\"registrationEventId\":\"registration-A1\"}],\"device\":{\"capabilities\":[\"explicit-rollback-v1\"],\"deviceId\":\"D1\",\"registrationEventId\":\"device-registration-D1\"},\"updater\":{\"capabilities\":[\"physical-operation-evidence-v1\"],\"contractVersion\":\"2.0\",\"evidenceId\":\"capability-P1\",\"updaterId\":\"P1\"}},\"createdAtUtc\":\"2026-09-15T00:00:00Z\",\"orderedAgentIds\":[\"A1\"],\"routeId\":\"route-D1\",\"routeVersion\":1,\"serverId\":\"server-1\",\"targetDeviceId\":\"D1\",\"targetUpdaterId\":\"P1\",\"topologyVersion\":1}",
+    "sha256": "ab0eca394d8073ae142a732fc290690463d21879eaf134375497c5fa30fac833"
+  },
+  {
+    "name": "branching",
+    "route": {
+      "routeId": "route-D2",
+      "routeVersion": 1,
+      "topologyVersion": 1,
+      "serverId": "server-1",
+      "targetDeviceId": "D2",
+      "targetUpdaterId": "P2",
+      "orderedAgentIds": [
+        "A1",
+        "A2"
+      ],
+      "capabilitySnapshot": {
+        "agents": [
+          {
+            "agentId": "A1",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A1"
+          },
+          {
+            "agentId": "A2",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A2"
+          }
+        ],
+        "updater": {
+          "updaterId": "P2",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "physical-operation-evidence-v1"
+          ],
+          "evidenceId": "capability-P2"
+        },
+        "device": {
+          "deviceId": "D2",
+          "capabilities": [
+            "explicit-rollback-v1"
+          ],
+          "registrationEventId": "device-registration-D2"
+        }
+      },
+      "createdAtUtc": "2026-09-15T00:00:00Z",
+      "routeSnapshotHash": "3f665fd6dc9d3f6a2d1a1265ba34bd01562f06a05a9dd1921737fab6f918bf61"
+    },
+    "canonicalUtf8": "{\"capabilitySnapshot\":{\"agents\":[{\"agentId\":\"A1\",\"capabilities\":[\"explicit-rollback-v1\",\"hierarchical-relay-v1\"],\"contractVersion\":\"2.0\",\"registrationEventId\":\"registration-A1\"},{\"agentId\":\"A2\",\"capabilities\":[\"explicit-rollback-v1\",\"hierarchical-relay-v1\"],\"contractVersion\":\"2.0\",\"registrationEventId\":\"registration-A2\"}],\"device\":{\"capabilities\":[\"explicit-rollback-v1\"],\"deviceId\":\"D2\",\"registrationEventId\":\"device-registration-D2\"},\"updater\":{\"capabilities\":[\"physical-operation-evidence-v1\"],\"contractVersion\":\"2.0\",\"evidenceId\":\"capability-P2\",\"updaterId\":\"P2\"}},\"createdAtUtc\":\"2026-09-15T00:00:00Z\",\"orderedAgentIds\":[\"A1\",\"A2\"],\"routeId\":\"route-D2\",\"routeVersion\":1,\"serverId\":\"server-1\",\"targetDeviceId\":\"D2\",\"targetUpdaterId\":\"P2\",\"topologyVersion\":1}",
+    "sha256": "3f665fd6dc9d3f6a2d1a1265ba34bd01562f06a05a9dd1921737fab6f918bf61"
+  },
+  {
+    "name": "n-hop",
+    "route": {
+      "routeId": "route-D3",
+      "routeVersion": 1,
+      "topologyVersion": 1,
+      "serverId": "server-1",
+      "targetDeviceId": "D3",
+      "targetUpdaterId": "P3",
+      "orderedAgentIds": [
+        "A1",
+        "A2",
+        "A3"
+      ],
+      "capabilitySnapshot": {
+        "agents": [
+          {
+            "agentId": "A1",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A1"
+          },
+          {
+            "agentId": "A2",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A2"
+          },
+          {
+            "agentId": "A3",
+            "contractVersion": "2.0",
+            "capabilities": [
+              "explicit-rollback-v1",
+              "hierarchical-relay-v1"
+            ],
+            "registrationEventId": "registration-A3"
+          }
+        ],
+        "updater": {
+          "updaterId": "P3",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "physical-operation-evidence-v1"
+          ],
+          "evidenceId": "capability-P3"
+        },
+        "device": {
+          "deviceId": "D3",
+          "capabilities": [
+            "explicit-rollback-v1"
+          ],
+          "registrationEventId": "device-registration-D3"
+        }
+      },
+      "createdAtUtc": "2026-09-15T00:00:00Z",
+      "routeSnapshotHash": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+    },
+    "canonicalUtf8": "{\"capabilitySnapshot\":{\"agents\":[{\"agentId\":\"A1\",\"capabilities\":[\"explicit-rollback-v1\",\"hierarchical-relay-v1\"],\"contractVersion\":\"2.0\",\"registrationEventId\":\"registration-A1\"},{\"agentId\":\"A2\",\"capabilities\":[\"explicit-rollback-v1\",\"hierarchical-relay-v1\"],\"contractVersion\":\"2.0\",\"registrationEventId\":\"registration-A2\"},{\"agentId\":\"A3\",\"capabilities\":[\"explicit-rollback-v1\",\"hierarchical-relay-v1\"],\"contractVersion\":\"2.0\",\"registrationEventId\":\"registration-A3\"}],\"device\":{\"capabilities\":[\"explicit-rollback-v1\"],\"deviceId\":\"D3\",\"registrationEventId\":\"device-registration-D3\"},\"updater\":{\"capabilities\":[\"physical-operation-evidence-v1\"],\"contractVersion\":\"2.0\",\"evidenceId\":\"capability-P3\",\"updaterId\":\"P3\"}},\"createdAtUtc\":\"2026-09-15T00:00:00Z\",\"orderedAgentIds\":[\"A1\",\"A2\",\"A3\"],\"routeId\":\"route-D3\",\"routeVersion\":1,\"serverId\":\"server-1\",\"targetDeviceId\":\"D3\",\"targetUpdaterId\":\"P3\",\"topologyVersion\":1}",
+    "sha256": "d994b3086aa2ffd7f504bbb23388667a1758d3449d698bc0b40895c43f157959"
+  }
+]

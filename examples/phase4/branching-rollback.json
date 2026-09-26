@@ -1,0 +1,77 @@
+{
+  "contractVersion": "2.0",
+  "commandType": "rollback",
+  "serverCommandJobId": "R2",
+  "originalUpdateJobId": "U2",
+  "updaterJobId": "U2",
+  "operationCorrelationId": "20000000-0000-4000-8000-000000000002",
+  "targetDeviceId": "D2",
+  "routeSnapshot": {
+    "routeId": "route-D2",
+    "routeVersion": 1,
+    "topologyVersion": 1,
+    "serverId": "server-1",
+    "targetDeviceId": "D2",
+    "targetUpdaterId": "P2",
+    "orderedAgentIds": [
+      "A1",
+      "A2"
+    ],
+    "capabilitySnapshot": {
+      "agents": [
+        {
+          "agentId": "A1",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A1"
+        },
+        {
+          "agentId": "A2",
+          "contractVersion": "2.0",
+          "capabilities": [
+            "explicit-rollback-v1",
+            "hierarchical-relay-v1"
+          ],
+          "registrationEventId": "registration-A2"
+        }
+      ],
+      "updater": {
+        "updaterId": "P2",
+        "contractVersion": "2.0",
+        "capabilities": [
+          "physical-operation-evidence-v1"
+        ],
+        "evidenceId": "capability-P2"
+      },
+      "device": {
+        "deviceId": "D2",
+        "capabilities": [
+          "explicit-rollback-v1"
+        ],
+        "registrationEventId": "device-registration-D2"
+      }
+    },
+    "createdAtUtc": "2026-09-15T00:00:00Z",
+    "routeSnapshotHash": "3f665fd6dc9d3f6a2d1a1265ba34bd01562f06a05a9dd1921737fab6f918bf61"
+  },
+  "requiredCapability": "hierarchical-relay-v1",
+  "createdAtUtc": "2026-09-15T00:03:00Z",
+  "expiresAtUtc": "2026-09-15T00:10:00Z",
+  "payload": {
+    "contractVersion": "2.0",
+    "jobId": "U2"
+  },
+  "hopContext": {
+    "hopIndex": 0,
+    "direction": "downstream",
+    "senderKind": "server",
+    "senderId": "server-1",
+    "receiverKind": "agent",
+    "receiverId": "A1",
+    "routeSnapshotHash": "3f665fd6dc9d3f6a2d1a1265ba34bd01562f06a05a9dd1921737fab6f918bf61",
+    "hopId": "e03bcea7b79d16ac9f606fd68b033fbd94617e99cc0ca1de30e0efcd00c1eb33"
+  }
+}
